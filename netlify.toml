@@ -1,0 +1,11 @@
+# Static, no-build app. The "build" only copies the app files into dist/,
+# so docs/ and tests/ are never served publicly.
+[build]
+  publish = "dist"
+  command = "rm -rf dist && mkdir -p dist && cp index.html styles.css sw.js manifest.json dist/ && cp -R js icons dist/"
+
+# Always check for a fresh service worker so phones pick up new versions.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"

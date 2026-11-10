@@ -1,0 +1,13 @@
+{
+  "name": "iai-fsd-v1",
+  "version": "1.0.0",
+  "private": true,
+  "description": "IAI Field Sales Dashboard: iPhone-first field-sales app for commercial drone window cleaning, facade cleaning and inspection.",
+  "scripts": {
+    "serve": "python3 -m http.server 8080",
+    "test": "sh tests/run-all.sh test-out"
+  },
+  "devDependencies": {
+    "playwright": "^1.40.0"
+  }
+}
