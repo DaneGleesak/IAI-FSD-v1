@@ -37,6 +37,8 @@ Legend: ✅ working and covered by a test · 🟡 working, partly simulated or l
 
 **Not built**
 - ⬜ Verified property-data providers (ownership, contacts, parcel data) and CRM sync
+  - **Planned (owner): Seamless.ai** will supply emails and phone numbers for decision makers. Step 1 is importing the owner's own export (CSV) into existing property records: each contact tagged "Seamless.ai" with the date, never marked verified until the owner confirms, never overwriting something the owner typed. That needs no new outside request. A live connection is a new outside host: the owner approves it first and sees exactly what would be sent (a company name and address, never notes or prices).
+  - **Planned (owner): Trellis** will transcribe calls so the app can understand each property better. Step 1 is attaching a transcript to the property's activity timeline (stored on the phone). Step 2 is a "what I heard" list the owner reviews (decision maker, timing, current vendor, objections, next step), each marked ✨ as a suggestion and added to the record only when the owner accepts it. Audio, if ever stored, goes in IndexedDB, never localStorage. A live link is a new outside host and needs the owner's approval first. Call-recording consent rules differ by state, so they should be checked before recording (this is not legal advice).
 - ⬜ Airspace/LAANC integration, weather window planning
 - ⬜ Multi-user accounts, cloud sync, team assignment
 - ⬜ Customer-facing quote PDF, e-signature, invoicing

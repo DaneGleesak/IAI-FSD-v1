@@ -60,6 +60,7 @@ const SECRETS = ['ZZ-SECRET-NOTE','secret.person@example.test','555-0199','ZZ-SE
   t.ok(rows.length>=2, 'ranked buildings come back ('+rows.length+')');
   t.ok(rows.every(r=>/High|Medium|Lower/.test(r)), 'each shows a band');
   t.ok(rows.some(r=>/Mock Tower A/.test(r)), 'the invented tower is listed');
+  t.ok(await page.isVisible('#fewHint'), 'with few results and unknown floors excluded, the app explains why and how to widen it');
   t.ok(!/Mock Tower A/.test(JSON.stringify((await S()).properties)), 'search results are not leads until the owner adds one');
 
   /* nothing private ever left, to any host */

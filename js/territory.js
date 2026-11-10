@@ -91,6 +91,7 @@ function paintResults(){
     '<div class="bandsum"><span class="bpill b-High">'+nb('High')+' High</span><span class="bpill b-Medium">'+nb('Medium')+' Medium</span><span class="bpill b-Lower">'+nb('Lower')+' Lower</span></div>'+
     '<p class="muted sm">'+esc(L.label)+' · '+esc(radLabel(L.radius))+' · '+plural(L.total,'building')+' on the map, '+L.items.length+' match ('+esc(critText(L.crit))+'). ✨ The order is a suggestion from what the map says. Confirm floors, size and type on site.</p>'+
     '<div class="lab">Rank by</div><div class="chips scroll" id="lens">'+Object.keys(LENS).map(k=>'<button class="chip'+(state.map.lens===k?' on':'')+'" data-v="'+k+'">'+esc(LENS[k].label)+'</button>').join('')+'</div></section>'+
+    (rows.length<8 && !L.crit.unknownLevels ? '<div class="card soft" id="fewHint"><p class="sm">Only buildings with a floor count on the map are shown, and many commercial buildings have none. Turn on “Include buildings with no floor count” above, then search again to see them.</p></div>' : '')+
     '<h3 class="sect">Prospects in radius</h3>'+rows.slice(0,MSHOW).map(candCard).join('')+(rows.length>MSHOW?'<button class="btn quiet wide" data-act="more-results">Show more ('+(rows.length-MSHOW)+' left)</button>':'');
   $$('#lens [data-v]',box).forEach(b=>b.addEventListener('click',()=>{ state.map.lens=b.dataset.v; save(); if(MAP){ MAP.rows=rowsNow(); mapDraw(); } paintResults(); }));
 }

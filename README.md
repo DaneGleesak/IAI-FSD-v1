@@ -51,6 +51,10 @@ sh tests/run-all.sh test-out                             # every suite
 
 The outside services are **mocked** in the tests, with invented buildings.
 
+## Try it in your markets
+
+See [`docs/FIELD-TEST.md`](docs/FIELD-TEST.md): install on the phone, one-time setup, a first run through a market, and what to watch for.
+
 ## Principles (what the app will not do)
 
 - **Nothing made up.** Ownership, contacts, prices, flight clearance and building measurements are left blank or marked *unknown* until you or a source supplies them. Map-derived numbers are labelled estimates with their source and date. There are **no built-in prices**: a quote line without your rate says "rate needed".
