@@ -5,3 +5,6 @@ test-out/
 *.log
 # Never commit real customer data, price lists or backups.
 iai-fsd-backup*.json
+
+# Netlify local link state
+.netlify
