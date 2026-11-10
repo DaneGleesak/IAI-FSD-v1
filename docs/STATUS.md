@@ -1,0 +1,63 @@
+# Implementation status
+
+Version 1.0.0, first vertical slice. Last updated with the first pull request.
+Legend: ✅ working and covered by a test · 🟡 working, partly simulated or limited · ⬜ not built.
+
+## The ten requirements
+
+| # | Requirement | State | Evidence |
+|---|---|---|---|
+| 1 | Actual iPhone-first field-sales app, not static mockups | ✅ | Installable PWA, safe areas, 44 px targets, offline. `tests/pwa.js`, `tests/layout.js` (320 and 390 px). **Not yet run on a physical iPhone** |
+| 2 | Screenshots as the shared visual reference | 🟡 | Five-tab nav, KPI tiles, territory card, top-priority lead, route, follow-ups, pipeline accordions/boards, Property Intelligence tabs, Scan CTA, "DEMO DATA / DRAFT — REVIEW REQUIRED" labels. Colours follow the IAI brand (navy/royal/cyan), as the owner asked, not the mockups' green. Pixel-level match not attempted |
+| 3 | Working navigation: Dashboard, Territory Map, Property Intelligence, Leads, Pipeline | ✅ | `tests/fsd1.js` §2–3: every tab, Property Intelligence reached from Leads, Pipeline and Dashboard, Back |
+| 4 | One canonical property record linking contacts, activities, quotes, tasks, stages | ✅ | `state.properties[]`; see [DATA-MODEL](DATA-MODEL.md). `tests/fsd1.js` §3, §5–7 |
+| 5 | Persistent records, editable info, field notes, functional stage changes | ✅ | Notes, tasks, contacts, facts, site questions, building numbers, estimate, priority, stage (one tap, picker, undo), photos/files. Survive reload (`fsd1.js` §5), backup round trip (§8), damaged-save kept (§9); photos and files in `tests/files.js` |
+| 6 | Clearly identified demonstration data until verified integrations exist | ✅ | Six invented properties, `DEMO DATA` tag on every card and sheet, banner, one-tap clear, never mixed with real leads. `fsd1.js` §1 |
+| 7 | Prioritise commercial drone window cleaning, facade cleaning, inspection | ✅ | Default services: window cleaning (exterior/interior floor 1 + floors 2 and up) is the core; facade cleaning and inspection are first add-ons; ready-made solutions lead with them. `tests/engine.js` |
+| 8 | Do not fabricate ownership, contacts, pricing, flight clearance, building measurements | ✅ | Blank/"unknown" defaults, no built-in rates, no clearance claims, map numbers labelled estimates with source. `fsd1.js` §4, §7; `engine.js` (quote maths); `hygiene.js` |
+| 9 | Approval for external communications and customer-facing quotes | ✅ | Quote draft → read → tick → approve; unapproved quotes cannot enter an email; mail opens only on tap; "I sent it" logs; demo quotes cannot be approved. `fsd1.js` §7 |
+| 10 | Automated tests, feature branch, README, status report, initial PR | ✅ | Seven suites (`sh tests/run-all.sh`), this report, README, PR from `feature/field-sales-vertical-slice` |
+
+## What is real, what is simulated
+
+**Real (works today, no setup)**
+- All screens, saving, editing, undo, backup/restore, install, offline.
+- Ranking and quote maths from building numbers you or the map supply.
+- Draft emails and quotes; opening a draft in the phone's mail app; copy to clipboard.
+- Call / Text / Email / Navigate links (plain `tel:`, `sms:`, `mailto:`, Apple Maps), followed only when tapped.
+
+**Simulated or limited**
+- **Demonstration data**: six invented properties, owners and contacts, clearly labelled. Their building numbers are invented, so quotes on them cannot be approved.
+- **Map, building search and address search** use OpenStreetMap when the owner turns lookups on. They are **mocked in all automated tests**; the build environment had no access to the live services, so **live behaviour is unverified** (rate limits, real data quality, the Overpass query on real data). Floors, outlines and addresses are volunteer-mapped and may be missing or wrong. The app says so.
+- **Dashboard and Pipeline maps** are simple schematics drawn from the leads' coordinates, with no map tiles, so those screens make no outside request.
+- **Owner / manager / decision-maker research** is a set of search links the owner taps (county parcel record, business registration, web search). Results are typed in by the owner and marked *You typed it*. No data provider is integrated.
+- **Airspace** shows only the distance to the nearest *mapped* airport and a link to the FAA LAANC page. No airspace or flight-clearance service is integrated.
+- **Email** is never sent by the app. A draft opens in the owner's mail app.
+- **Prices**: none are built in. The owner types a rate per service in Settings.
+
+**Not built**
+- ⬜ Verified property-data providers (ownership, contacts, parcel data) and CRM sync
+- ⬜ Airspace/LAANC integration, weather window planning
+- ⬜ Multi-user accounts, cloud sync, team assignment
+- ⬜ Customer-facing quote PDF, e-signature, invoicing
+- ⬜ Push notifications and calendar integration
+- ⬜ Voice notes (the quick-action button area is Call / Navigate / Note / Photo)
+- ⬜ CI workflow (tests run locally with `sh tests/run-all.sh`)
+
+## Needs review
+
+1. **Real iPhone pass**: Safari and home-screen mode, safe areas, keyboard behaviour in dialogs, `mailto:` hand-off, Apple Maps links, photo picker.
+2. **Live OpenStreetMap pass**: turn lookups on and try a real search around a known service area. Check Overpass load, result quality, and the 8-mile airport check.
+3. **Ranking weights**: the High/Medium/Lower rules (height, size, type, glass, nearness, how much is known) are a reasonable first guess. Product review welcome.
+4. **Quote model**: price = owner's rate × floors × building edge (or flat/per-sq-ft units). Confirm this matches how IAI prices; only the owner can supply rates.
+5. **Pipeline stages and wording**: Identified · Researching · Contacted · Qualified · Proposal · Negotiation · Won · Lost.
+6. **Email wording and compliance**: the draft carries the owner's mailing address and an opt-out line. The owner should have the final wording reviewed.
+7. **Third-party links**: Google search, Ohio business search (shown for Ohio addresses), NWS forecast, FAA LAANC page, Apple Maps. Each leaves the app only when tapped.
+8. **Look and feel**: compare against the mockups; list differences that matter.
+
+## Known limitations
+
+- Data lives in one browser (localStorage + IndexedDB). Clearing Safari data erases it; use Settings → Export backup.
+- Safari can evict storage for sites not added to the Home Screen; installing helps.
+- Floors are often missing from OpenStreetMap; the search can include buildings with no floor count, flagged as unknown.
+- Single user, single device.
