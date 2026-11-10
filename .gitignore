@@ -1,0 +1,7 @@
+node_modules/
+dist/
+test-out/
+.DS_Store
+*.log
+# Never commit real customer data, price lists or backups.
+iai-fsd-backup*.json
