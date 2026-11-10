@@ -16,7 +16,7 @@ Legend: ✅ working and covered by a test · 🟡 working, partly simulated or l
 | 7 | Prioritise commercial drone window cleaning, facade cleaning, inspection | ✅ | Default services: window cleaning (exterior/interior floor 1 + floors 2 and up) is the core; facade cleaning and inspection are first add-ons; ready-made solutions lead with them. `tests/engine.js` |
 | 8 | Do not fabricate ownership, contacts, pricing, flight clearance, building measurements | ✅ | Blank/"unknown" defaults, no built-in rates, no clearance claims, map numbers labelled estimates with source. `fsd1.js` §4, §7; `engine.js` (quote maths); `hygiene.js` |
 | 9 | Approval for external communications and customer-facing quotes | ✅ | Quote draft → read → tick → approve; unapproved quotes cannot enter an email; mail opens only on tap; "I sent it" logs; demo quotes cannot be approved. `fsd1.js` §7 |
-| 10 | Automated tests, feature branch, README, status report, initial PR | ✅ | Seven suites (`sh tests/run-all.sh`), this report, README, PR from `feature/field-sales-vertical-slice` |
+| 10 | Automated tests, feature branch, README, status report, initial PR | ✅ | Eight suites (`sh tests/run-all.sh`), this report, README, PR from `feature/field-sales-vertical-slice` |
 
 ## What is real, what is simulated
 
@@ -61,3 +61,4 @@ Legend: ✅ working and covered by a test · 🟡 working, partly simulated or l
 - Safari can evict storage for sites not added to the Home Screen; installing helps.
 - Floors are often missing from OpenStreetMap; the search can include buildings with no floor count, flagged as unknown.
 - Single user, single device.
+- If a view blocks browser storage entirely (some private-browsing or embedded previews), nothing is kept between visits; the app says so and works in memory for that visit.

@@ -138,7 +138,11 @@ function load(){
   }
 }
 let state=load();
+/* some views (private browsing, an embedded preview) block browser storage altogether: the app then keeps
+   everything in memory for the visit and says so once, instead of claiming the phone is full */
+let storageBlocked=false; try{ localStorage.getItem(KEY); }catch(e){ storageBlocked=true; }
 function save(){
+  if(storageBlocked) return false;
   try{ localStorage.setItem(KEY, JSON.stringify(state)); saveFailed=false; return true; }
   catch(e){ if(!saveFailed){ saveFailed=true; toast('This phone has no room left to save. Export a backup now (Settings).'); } return false; }
 }

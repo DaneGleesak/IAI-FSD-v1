@@ -4,8 +4,10 @@
   let first=false; try{ first=localStorage.getItem(KEY)===null; }catch(e){}
   const params=new URLSearchParams(location.search);
   /* the very first launch shows labelled demonstration data so the app can be seen working; it clears in one tap */
+  if(storageBlocked) first=true;
   if((first && !state.ui.seeded) || params.get('demo')==='1'){ loadDemo(); state.ui.seeded=true; save(); }
   paintNav(); show(state.ui.tab || 'dash');
-  if(damagedSave) toast('Your saved data could not be read. A copy was kept and nothing was deleted.', {ms:9000});
+  if(storageBlocked) toast('This view can’t keep your data between visits, so what you change lasts until you close it. Open the app in Safari to keep it.', {ms:12000});
+  else if(damagedSave) toast('Your saved data could not be read. A copy was kept and nothing was deleted.', {ms:9000});
   if('serviceWorker' in navigator && location.protocol!=='file:'){ window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{})); }
 })();
