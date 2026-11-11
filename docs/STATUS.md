@@ -1,6 +1,6 @@
 # Implementation status
 
-Version 1.0.0, first vertical slice. Last updated with the first pull request.
+Version 1.0.0, first vertical slice. Last updated with the county-records pull request.
 Legend: ✅ working and covered by a test · 🟡 working, partly simulated or limited · ⬜ not built.
 
 ## The ten requirements
@@ -25,6 +25,7 @@ Legend: ✅ working and covered by a test · 🟡 working, partly simulated or l
 - Ranking and quote maths from building numbers you or the map supply.
 - **Mac mini market scan**: `tools/market-scan.mjs` makes a ranked pack from OpenStreetMap on a Mac mini (same engine as the app); the phone imports it from a file with lookups on or off, and sends nothing (`tests/scan.js`). See `docs/MAC-MINI.md`.
 - Map search is map-first: after Search the filters fold into one line (“Change filters” brings them back) and the ranked results sit right under the map. A 3 mi radius is one tap, a fresh install starts on the hotels / apartments / offices / medical preset, and the Search button stays in reach while the filters are open (`tests/outside.js`).
+- **County records (Cuyahoga)**: in a building's Contacts tab, “Look up county record” asks the county's public parcel records about that one map position (the exact request is shown first; nothing else is sent). It shows the deeded owner, mailing address, land use, building area and living units, labelled as the county's record. The owner fact is filled only when you tap “Use as owner” (estimated, source named); a typed owner is never replaced without asking. `tests/county.js` (mocked county, invented owners).
 - Draft emails and quotes; opening a draft in the phone's mail app; copy to clipboard.
 - Call / Text / Email / Navigate links (plain `tel:`, `sms:`, `mailto:`, Apple Maps), followed only when tapped.
 
@@ -32,7 +33,8 @@ Legend: ✅ working and covered by a test · 🟡 working, partly simulated or l
 - **Demonstration data**: six invented properties, owners and contacts, clearly labelled. Their building numbers are invented, so quotes on them cannot be approved.
 - **Map, building search and address search** use OpenStreetMap when the owner turns lookups on. They are **mocked in all automated tests**; the build environment had no access to the live services, so **live behaviour is unverified** (rate limits, real data quality, the Overpass query on real data). Floors, outlines and addresses are volunteer-mapped and may be missing or wrong. The app says so.
 - **Dashboard and Pipeline maps** are simple schematics drawn from the leads' coordinates, with no map tiles, so those screens make no outside request.
-- **Owner / manager / decision-maker research** is a set of search links the owner taps (county parcel record, business registration, web search). Results are typed in by the owner and marked *You typed it*. No data provider is integrated.
+- **County records live behaviour is unverified**: the build environment could not reach `gis.cuyahogacounty.gov`, so the field names, the land-use codes and whether the county allows requests from a web page (CORS) are untested against the real server. If it refuses, the answer is a plain “County lookup failed” and the Mac mini tool is the fallback. The county has no floor count or year built.
+- **Owner / manager / decision-maker research** (other than the county lookup above) is a set of search links the owner taps (county parcel record, business registration, web search). Results are typed in by the owner and marked *You typed it*. No data provider is integrated.
 - **Airspace** shows only the distance to the nearest *mapped* airport and a link to the FAA LAANC page. No airspace or flight-clearance service is integrated.
 - **Email** is never sent by the app. A draft opens in the owner's mail app.
 - **Prices**: none are built in. The owner types a rate per service in Settings.
@@ -52,13 +54,14 @@ Legend: ✅ working and covered by a test · 🟡 working, partly simulated or l
 ## Needs review
 
 1. **Real iPhone pass**: Safari and home-screen mode, safe areas, keyboard behaviour in dialogs, `mailto:` hand-off, Apple Maps links, photo picker.
-2. **Live OpenStreetMap pass**: turn lookups on and try a real search around a known service area. Check Overpass load, result quality, and the 8-mile airport check.
-3. **Ranking weights**: the High/Medium/Lower rules (height, size, type, glass, nearness, how much is known) are a reasonable first guess. Product review welcome.
-4. **Quote model**: price = owner's rate × floors × building edge (or flat/per-sq-ft units). Confirm this matches how IAI prices; only the owner can supply rates.
-5. **Pipeline stages and wording**: Identified · Researching · Contacted · Qualified · Proposal · Negotiation · Won · Lost.
-6. **Email wording and compliance**: the draft carries the owner's mailing address and an opt-out line. The owner should have the final wording reviewed.
-7. **Third-party links**: Google search, Ohio business search (shown for Ohio addresses), NWS forecast, FAA LAANC page, Apple Maps. Each leaves the app only when tapped.
-8. **Look and feel**: compare against the mockups; list differences that matter.
+2. **Live county pass**: Map → turn lookups on → open a building in Cuyahoga County → Contacts → “Look up county record”. Check the owner, units and area look right.
+3. **Live OpenStreetMap pass**: turn lookups on and try a real search around a known service area. Check Overpass load, result quality, and the 8-mile airport check.
+4. **Ranking weights**: the High/Medium/Lower rules (height, size, type, glass, nearness, how much is known) are a reasonable first guess. Product review welcome.
+5. **Quote model**: price = owner's rate × floors × building edge (or flat/per-sq-ft units). Confirm this matches how IAI prices; only the owner can supply rates.
+6. **Pipeline stages and wording**: Identified · Researching · Contacted · Qualified · Proposal · Negotiation · Won · Lost.
+7. **Email wording and compliance**: the draft carries the owner's mailing address and an opt-out line. The owner should have the final wording reviewed.
+8. **Third-party links**: Google search, Ohio business search (shown for Ohio addresses), NWS forecast, FAA LAANC page, Apple Maps. Each leaves the app only when tapped.
+9. **Look and feel**: compare against the mockups; list differences that matter.
 
 ## Known limitations
 

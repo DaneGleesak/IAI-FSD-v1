@@ -52,6 +52,11 @@ function cleanFacts(f){
   ['owner','mgmt','vendor','renewal'].forEach(k=>{ const x=(f[k] && typeof f[k]==='object') ? f[k] : {}; o[k]={v:str(x.v,200), st:x.v ? (['estimated','verified'].includes(x.st)?x.st:'estimated') : 'unknown', src:str(x.src,120)}; });
   return o;
 }
+function cleanCounty(c){
+  if(!c || typeof c!=='object' || !COUNTIES[c.key]) return null;
+  const recs=(Array.isArray(c.recs)?c.recs:[]).slice(0,10).map(countyRecClean).filter(Boolean), pk=Math.round(num(c.pick,-1,9,-1));
+  return {key:c.key, ts:Number(c.ts)||0, recs, pick:(pk>=0 && pk<recs.length)?pk:-1};
+}
 function cleanLead(x){
   if(!x || typeof x!=='object' || !x.id) return null;
   const la=Number(x.lat), lo=Number(x.lon), hasPos=x.lat!=null && x.lon!=null && Math.abs(la)<=90 && Math.abs(lo)<=180;
@@ -82,7 +87,7 @@ function cleanLead(x){
       stories:q.stories==null?null:Math.round(num(q.stories,1,200,1)), perimFt:q.perimFt==null?null:num(q.perimFt,0,1e6,0), text:str(q.text,6000),
       status:q.status==='approved'?'approved':'draft', approvedTs:q.status==='approved'?(Number(q.approvedTs)||0):0, approvedBy:q.status==='approved'?str(q.approvedBy,80):'',
       lines:(Array.isArray(q.lines)?q.lines:[]).slice(0,40).map(z=>({id:str(z&&z.id,40), name:str(z&&z.name,160), amount:(z&&z.amount!=null)?num(z.amount,0,1e9,null):null, need:str(z&&z.need,20), core:!!(z&&z.core)}))})),
-    fileIds:(Array.isArray(x.fileIds)?x.fileIds:[]).map(s=>str(s,40)).slice(0,60)};
+    fileIds:(Array.isArray(x.fileIds)?x.fileIds:[]).map(s=>str(s,40)).slice(0,60), county:cleanCounty(x.county)};
   return l;
 }
 function normalize(raw){

@@ -147,7 +147,7 @@ function back(){ if(!SHEET) return; closeSheet(); const y=window.scrollY; show(s
 ACT['back']=()=>back();
 
 /* ---------- lookups: described first, the exact request shown, nothing from your leads attached ---------- */
-const HOSTS={tile:'tile.openstreetmap.org', overpass:'overpass-api.de', nominatim:'nominatim.openstreetmap.org'};
+const HOSTS={tile:'tile.openstreetmap.org', overpass:'overpass-api.de', nominatim:'nominatim.openstreetmap.org', county:'gis.cuyahogacounty.gov'};
 async function fetchJSON(url, opt){
   const ctl=window.AbortController ? new AbortController() : null, ms=(opt && opt.ms) || 30000, t=setTimeout(()=>ctl && ctl.abort(), ms);
   try{
@@ -180,6 +180,7 @@ function consentCard(){
     '<div class="line">🗺 <b>Map pictures</b> from '+HOSTS.tile+' as you move the map. OpenStreetMap sees the area you look at.</div>'+
     '<div class="line">🏢 <b>Building search</b> at '+HOSTS.overpass+': a center point, a radius and the filters you choose.</div>'+
     '<div class="line">📍 <b>Address search</b> at '+HOSTS.nominatim+': the address you type.</div>'+
+    '<div class="line">🏛 <b>County records</b> at '+HOSTS.county+' (Cuyahoga County): one building’s map position, only when you tap “Look up county record”.</div>'+
     '<p class="muted sm">Nothing from your leads, contacts, prices or notes is ever sent, and there are no cookies. You see the exact request before each search (you can switch that off). OpenStreetMap’s rules ask for this app’s web address on map and address requests; that is the only other thing sent. Email is never sent from here: a draft opens in your mail app and you tap send.</p>'+
     '<div class="actions"><button class="btn" data-act="lookups-on">Turn on lookups</button></div></section>';
 }

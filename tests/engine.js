@@ -4,7 +4,7 @@ const fs = require('fs'), path = require('path'), vm = require('vm');
 const { suite } = require('./lib');
 const t = suite('engine');
 const ctx = {}; vm.createContext(ctx);
-vm.runInContext(fs.readFileSync(path.resolve(__dirname,'../js/engine.js'),'utf8')+'\nthis.E={quoteCalc,defaultServices,rankCands,parseOverpass,keepCand,candClean,buildQuery,critClean,ringStats,solutionsFor,defaultPlaybooks,SERVICE_FAMILIES};', ctx);
+vm.runInContext(fs.readFileSync(path.resolve(__dirname,'../js/engine.js'),'utf8')+'\nthis.E={countyFor,countyQuery,parseCounty,countyRecClean,COUNTIES,quoteCalc,defaultServices,rankCands,parseOverpass,keepCand,candClean,buildQuery,critClean,ringStats,solutionsFor,defaultPlaybooks,SERVICE_FAMILIES};', ctx);
 const E = ctx.E;
 
 /* defaults: no price is invented anywhere */
@@ -54,4 +54,17 @@ t.ok(rs && rs.perimFt>0 && rs.sqft>0, 'ring area and perimeter are computed from
 /* playbooks */
 t.ok(E.defaultPlaybooks().length>=6, 'ready-made solutions exist');
 t.ok(E.solutionsFor(E.defaultPlaybooks(),'hotel',9).length>=1, 'a tall hotel matches at least one ready-made solution');
+/* county records: the pure parts. Invented parcel, invented owner. */
+t.eq(E.countyFor(41.4577,-81.4927),'cuyahoga','a Beachwood position is in the county the app can look up');
+t.eq(E.countyFor(39.96,-83.0),'','a position outside it is not');
+const cq=E.countyQuery(41.4577,-81.4927);
+t.ok(/geometry=-81\.492700,41\.457700/.test(cq) && /returnGeometry=false/.test(cq), 'the query asks about one point and asks for no map shapes');
+t.ok(!/lead|price|note|rate/i.test(cq), 'the query carries only a position');
+const recs=E.parseCounty({features:[{attributes:{PARCELPIN:'999000001', DEEDED_OWNER:'MOCK HOLDINGS LLC', MAIL_NAME:'MOCK MGMT CO', MAIL_ADDR_STREET:'1 TEST WAY', MAIL_CITY:'MOCKTOWN', MAIL_STATE:'OH', MAIL_ZIP:'44000', PAR_ADDR_ALL:'1 TEST AVE', TAX_LUC:'999', TAX_LUC_DESCRIPTION:'MOCK USE', TOTAL_COM_USE_AREA:52400, COM_LIVING_UNITS:0, TRANSFER_DATE:1700000000000, SALES_AMOUNT:0}},{attributes:{}}]});
+t.eq(recs.length,1,'an empty record is dropped');
+t.eq(recs[0].owner,'MOCK HOLDINGS LLC','the deeded owner is read, whatever the case of the field names');
+t.ok(/MOCK MGMT CO/.test(recs[0].mailTo) && /MOCKTOWN, OH 44000/.test(recs[0].mailTo), 'the mailing address keeps the name when it differs from the owner');
+t.eq(recs[0].comArea,52400,'commercial area is kept'); t.eq(recs[0].units,null,'zero units is stored as unknown, not 0'); t.eq(recs[0].saleAmt,null,'a zero sale price is not shown as a price');
+t.eq(E.parseCounty({error:{code:400}}),[],'an error answer gives no records');
+t.eq(E.parseCounty(null),[],'no answer gives no records');
 t.done();
