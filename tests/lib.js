@@ -32,7 +32,7 @@ async function launch(opts){
   const port = opts.port || 8200 + Math.floor(Math.random()*500);
   const srv = await serve(opts.root || path.resolve(__dirname,'..'), port);
   const browser = await chromium.launch();
-  const ctx = await browser.newContext({ viewport:{width:opts.w||390,height:opts.h||844}, deviceScaleFactor:1, serviceWorkers:'block', permissions:['clipboard-read','clipboard-write'], acceptDownloads:true });
+  const ctx = await browser.newContext({ viewport:{width:opts.w||390,height:opts.h||844}, deviceScaleFactor:1, hasTouch:!!opts.touch, isMobile:!!opts.touch, serviceWorkers:'block', permissions:['clipboard-read','clipboard-write'], acceptDownloads:true });
   const outside = [];           // every request that left the app's own origin
   const bodies = [];            // text sent in those requests
   await ctx.route(u=>!u.href.startsWith('http://localhost:'+port), async route=>{

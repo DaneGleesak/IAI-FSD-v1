@@ -13,7 +13,7 @@ const fmt=n=>Number(n).toLocaleString('en-US',{maximumFractionDigits:0});
 const parseMoney=s=>{ const m=String(s||'').replace(/,/g,'').match(/\d+(?:\.\d+)?/); return m ? parseFloat(m[0]) : null; };
 
 /* ---------- what the app knows about building kinds ---------- */
-const RADII=[[402,'¼ mi'],[805,'½ mi'],[1609,'1 mi'],[3219,'2 mi'],[8047,'5 mi'],[16093,'10 mi']];
+const RADII=[[402,'¼ mi'],[805,'½ mi'],[1609,'1 mi'],[3219,'2 mi'],[4828,'3 mi'],[8047,'5 mi'],[16093,'10 mi']];
 const TYPES={
   apartments:{label:'Apartments', icon:'🏢', b:['apartments'], tall:['residential','dormitory']},
   hotel:{label:'Hotels', icon:'🏨', b:['hotel','motel'], t:['hotel','motel']},
@@ -36,6 +36,7 @@ const CATS={
 };
 const CAT_KEYS=Object.keys(CATS), TYPE_KEYS=Object.keys(TYPES);
 const PRESETS={
+  targets:{label:'Hotels, apts, offices, medical', minLevels:3, types:['hotel','apartments','office','medical'], minSqft:5000, unknownLevels:true},
   highrise:{label:'Tall buildings (5+ floors)', minLevels:5, types:[], minSqft:5000, unknownLevels:false},
   apartments:{label:'Apartments', minLevels:3, types:['apartments'], minSqft:5000, unknownLevels:true},
   hotels:{label:'Hotels', minLevels:2, types:['hotel'], minSqft:5000, unknownLevels:true},

@@ -37,6 +37,12 @@ function paintSearch(body){
 }
 function paintCtl(){
   const box=$('#mapCtl'); if(!box) return; const M=state.map, c=M.crit, P=M.pin;
+  if(state.search.last && state.ui.ctlOpen===false){
+    box.innerHTML='<div class="line" id="ctlSum"><span id="pinTxt">'+(P?'📍 '+esc(P.label||(P.lat.toFixed(4)+', '+P.lon.toFixed(4))):'Tap the map to drop a pin')+'</span> · '+esc(radLabel(M.radius))+'</div>'+
+      '<div class="btnrow2"><button class="btn" id="cGo"'+(P?'':' disabled')+'>Search again</button><button class="btn quiet" id="cEdit">Change filters</button></div>';
+    $('#cEdit',box).addEventListener('click',()=>{ state.ui.ctlOpen=true; save(); paintCtl(); });
+    $('#cGo',box).addEventListener('click',runSearch); return;
+  }
   box.innerHTML='<div class="lab first">Where</div><div class="line" id="pinTxt">'+(P?'📍 '+(P.label?esc(P.label)+' · ':'')+P.lat.toFixed(4)+', '+P.lon.toFixed(4):'Tap the map to drop a pin where you want to look.')+'</div>'+
     '<div class="lab">Radius</div><div class="chips" id="cRad">'+RADII.map(([mm,l])=>'<button class="chip'+(M.radius===mm?' on':'')+'" data-v="'+mm+'">'+l+'</button>').join('')+'</div>'+
     '<div class="lab">Quick picks</div><div class="chips scroll" id="cPre">'+Object.keys(PRESETS).map(k=>'<button class="chip'+(c.preset===k?' on':'')+'" data-v="'+k+'">'+esc(PRESETS[k].label)+'</button>').join('')+'</div>'+
@@ -45,7 +51,7 @@ function paintCtl(){
     '<div class="lab">Services to offer</div><div class="chips scroll" id="cSv">'+Object.keys(SERVICE_FAMILIES).map(k=>'<button class="chip'+(M.offer.includes(k)?' on':'')+'" data-v="'+k+'" aria-pressed="'+M.offer.includes(k)+'">'+esc(SERVICE_FAMILIES[k].label)+'</button>').join('')+'</div>'+
     '<div class="chips"><button class="chip wrap'+(c.unknownLevels?' on':'')+'" id="cUnk" aria-pressed="'+c.unknownLevels+'">'+(c.unknownLevels?'✓ ':'')+'Include buildings with no floor count on the map</button></div>'+
     '<p class="muted sm">'+esc(critText(c))+'</p>'+
-    '<div class="chips"><button class="btn" id="cGo"'+(P?'':' disabled')+'>'+ic('search')+' Search this area</button><button class="btn quiet" id="cSave"'+(P?'':' disabled')+'>Save area</button></div>'+
+    '<div class="chips actionbar"><button class="btn" id="cGo"'+(P?'':' disabled')+'>'+ic('search')+' Search this area</button><button class="btn quiet" id="cSave"'+(P?'':' disabled')+'>Save area</button></div>'+
     '<div class="privline">Map data © OpenStreetMap contributors. Floors and outlines are volunteer-mapped, so they are estimates to confirm on site.</div>';
   const edit=f=>{ f(); c.preset=PRESETS[c.preset] && JSON.stringify([c.minLevels,c.types.slice().sort()])===JSON.stringify([PRESETS[c.preset].minLevels,PRESETS[c.preset].types.slice().sort()]) ? c.preset : 'custom'; save(); paintCtl(); };
   $$('#cRad [data-v]',box).forEach(b=>b.addEventListener('click',()=>{ M.radius=Number(b.dataset.v); save(); if(MAP){ mapDraw(); if(P) mapFitTo(P.lat,P.lon,M.radius); } paintCtl(); }));
@@ -73,9 +79,9 @@ async function runSearch(){
       const label=pin.label || (pin.lat.toFixed(3)+', '+pin.lon.toFixed(3));
       state.search.last={ts:Date.now(), lat:pin.lat, lon:pin.lon, radius:M.radius, crit:critClean(M.crit), label, total:parsed.items.length, airports:parsed.air.slice(0,20), items:top.map(candClean).filter(Boolean)};
       state.search.runs.unshift({id:uid(), ts:Date.now(), label, lat:pin.lat, lon:pin.lon, radius:M.radius, crit:critClean(M.crit), found:parsed.items.length, kept:kept.length}); state.search.runs=state.search.runs.slice(0,30);
-      save(); searchBusy=false; MSHOW=20;
+      state.ui.ctlOpen=kept.length===0; save(); searchBusy=false; MSHOW=20;
       toast(kept.length ? '✓ '+plural(kept.length,'building')+' match, ranked' : 'Nothing matched. Try a wider radius or looser filters.');
-      if(state.ui.tab==='map' && state.ui.mapTab==='search' && MAP){ MAP.rows=rowsNow(); mapDraw(); paintCtl(); paintResults(); const r=$('#results'); if(r&&kept.length) r.scrollIntoView({behavior:'smooth',block:'start'}); }
+      if(state.ui.tab==='map' && state.ui.mapTab==='search' && MAP){ MAP.rows=rowsNow(); mapDraw(); paintCtl(); paintResults(); const r=$('#mapHost'); if(r&&kept.length) r.scrollIntoView({behavior:'smooth',block:'start'}); }
     }catch(e){
       searchBusy=false; toast('Search failed: '+netMsg(e)); const b2=$('#cGo'); if(b2){ b2.disabled=false; b2.innerHTML=ic('search')+' Search this area'; }
     }
@@ -91,7 +97,7 @@ function paintResults(){
     '<div class="bandsum"><span class="bpill b-High">'+nb('High')+' High</span><span class="bpill b-Medium">'+nb('Medium')+' Medium</span><span class="bpill b-Lower">'+nb('Lower')+' Lower</span></div>'+
     '<p class="muted sm">'+esc(L.label)+' · '+esc(radLabel(L.radius))+' · '+plural(L.total,'building')+' on the map, '+L.items.length+' match ('+esc(critText(L.crit))+'). ✨ The order is a suggestion from what the map says. Confirm floors, size and type on site.</p>'+
     '<div class="lab">Rank by</div><div class="chips scroll" id="lens">'+Object.keys(LENS).map(k=>'<button class="chip'+(state.map.lens===k?' on':'')+'" data-v="'+k+'">'+esc(LENS[k].label)+'</button>').join('')+'</div></section>'+
-    (rows.length<8 && !L.crit.unknownLevels ? '<div class="card soft" id="fewHint"><p class="sm">Only buildings with a floor count on the map are shown, and many commercial buildings have none. Turn on “Include buildings with no floor count” above, then search again to see them.</p></div>' : '')+
+    (rows.length<8 && !L.crit.unknownLevels ? '<div class="card soft" id="fewHint"><p class="sm">Only buildings with a floor count on the map are shown, and many commercial buildings have none. Tap “Change filters”, turn on “Include buildings with no floor count”, then search again to see them.</p></div>' : '')+
     '<h3 class="sect">Prospects in radius</h3>'+rows.slice(0,MSHOW).map(candCard).join('')+(rows.length>MSHOW?'<button class="btn quiet wide" data-act="more-results">Show more ('+(rows.length-MSHOW)+' left)</button>':'');
   $$('#lens [data-v]',box).forEach(b=>b.addEventListener('click',()=>{ state.map.lens=b.dataset.v; save(); if(MAP){ MAP.rows=rowsNow(); mapDraw(); } paintResults(); }));
 }

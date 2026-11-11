@@ -48,6 +48,11 @@ const SECRETS = ['ZZ-SECRET-NOTE','secret.person@example.test','555-0199','ZZ-SE
   t.eq(T.outside.filter(r=>/nominatim/.test(r.url)).length, 1, 'tapping Search sends exactly one address request');
   const pin = (await S()).map.pin; t.ok(pin && Math.abs(pin.lat-39.96)<0.01, 'the pin lands on the mocked result');
 
+  /* a fresh install starts on the hotels / apartments / offices / medical mix, and 3 mi is one tap */
+  t.eq((await S()).map.crit.preset, 'targets', 'a fresh install starts on the hotels, apartments, offices and medical preset');
+  t.ok(!!(await page.$('#cRad [data-v="4828"]')), 'a 3 mi radius is one tap');
+  t.ok(/Hotels/.test(await page.textContent('#cPre .chip')), 'that preset is the first quick pick');
+  await page.click('#cPre [data-v="highrise"]');
   /* building search */
   await page.click('#cGo'); await page.waitForSelector('#cfPay');
   const body = await page.inputValue('#cfPay');
@@ -62,6 +67,13 @@ const SECRETS = ['ZZ-SECRET-NOTE','secret.person@example.test','555-0199','ZZ-SE
   t.ok(rows.some(r=>/Mock Tower A/.test(r)), 'the invented tower is listed');
   t.ok(await page.isVisible('#fewHint'), 'with few results and unknown floors excluded, the app explains why and how to widen it');
   t.ok(!/Mock Tower A/.test(JSON.stringify((await S()).properties)), 'search results are not leads until the owner adds one');
+  /* map first: the filter stack folds into one line and the ranked results sit right under the map */
+  t.ok(!(await page.isVisible('#cRad')), 'after a search the radius and filter stack folds away');
+  t.ok(/mi/.test(await page.textContent('#ctlSum')), 'a one-line summary of radius and filters stays');
+  const gap = await page.evaluate(()=>document.getElementById('results').getBoundingClientRect().top - document.getElementById('mapHost').getBoundingClientRect().bottom);
+  t.ok(gap < 220, 'the results start right under the map ('+Math.round(gap)+' px)');
+  await page.click('#cEdit'); t.ok(await page.isVisible('#cRad'), '“Change filters” brings the full controls back');
+
 
   /* nothing private ever left, to any host */
   const all = T.bodies.join('\n');

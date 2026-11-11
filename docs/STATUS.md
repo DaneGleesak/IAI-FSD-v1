@@ -23,6 +23,7 @@ Legend: ✅ working and covered by a test · 🟡 working, partly simulated or l
 **Real (works today, no setup)**
 - All screens, saving, editing, undo, backup/restore, install, offline.
 - Ranking and quote maths from building numbers you or the map supply.
+- Map search is map-first: after Search the filters fold into one line (“Change filters” brings them back) and the ranked results sit right under the map. A 3 mi radius is one tap, a fresh install starts on the hotels / apartments / offices / medical preset, and the Search button stays in reach while the filters are open (`tests/outside.js`).
 - Draft emails and quotes; opening a draft in the phone's mail app; copy to clipboard.
 - Call / Text / Email / Navigate links (plain `tel:`, `sms:`, `mailto:`, Apple Maps), followed only when tapped.
 

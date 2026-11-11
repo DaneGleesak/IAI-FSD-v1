@@ -227,3 +227,6 @@ details{margin:8px 0}summary{min-height:44px;display:flex;align-items:center;fon
 .consent .actions{justify-content:flex-start}
 @media (min-width:700px){ #sheet{left:50%;right:auto;width:640px;transform:translateX(-50%);box-shadow:0 0 40px rgba(0,21,42,.3)} .sh-actions{left:50%;right:auto;width:640px;transform:translateX(-50%)} }
 @media (prefers-reduced-motion:reduce){ *{transition:none!important;animation:none!important;scroll-behavior:auto!important} }
+/* map search: the Search button stays in reach while the filters are open; results land clear of the sticky header */
+.actionbar{position:sticky;bottom:calc(60px + var(--sb));z-index:5;background:var(--card);margin:10px -14px 0;padding:10px 14px;border-top:1px solid var(--line)}
+#results,#mapHost{scroll-margin-top:76px}.btnrow2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
