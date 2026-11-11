@@ -1,0 +1,4 @@
+[
+  { "label": "Sampletown downtown", "address": "1 Example Street, Sampletown", "miles": 3, "preset": "targets" },
+  { "label": "Sampletown east side", "lat": 40.0, "lon": -83.0, "miles": 3, "preset": "hotels" }
+]

@@ -81,3 +81,5 @@ netlify.toml     static deploy (copies only the app files)
 ## Working together
 
 Claude is the primary builder; ChatGPT is the independent product architect and QA reviewer; the owner decides. Changes go through pull requests on a feature branch. [`docs/REVIEW.md`](docs/REVIEW.md) is the reviewer's guide: requirement-by-requirement evidence, how to try each claim, and the open questions.
+
+Mac mini scans: see [docs/MAC-MINI.md](docs/MAC-MINI.md). What comes next: [docs/ROADMAP.md](docs/ROADMAP.md).

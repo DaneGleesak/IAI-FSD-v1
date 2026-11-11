@@ -41,11 +41,11 @@ function defaultSender(){ return {name:'', company:'', phone:'', email:'', addre
 function defaults(){
   return {v:1, properties:[],
     settings:{lookups:{on:false, autoSend:false}, sender:defaultSender(), floorFt:null, services:defaultServices(), playbooks:defaultPlaybooks()},
-    map:{view:null, pin:null, radius:1609, crit:critClean({}), lens:'balanced', offer:[]},
+    map:{view:null, pin:null, radius:1609, crit:critClean({preset:'targets'}), lens:'balanced', offer:[]},
     search:{last:null, runs:[], saved:[]},
     counters:{quote:0},
     route:{day:'', ids:[]},
-    ui:{tab:'dash', seeded:false, mapTab:'search', pipeView:'list', pipeFilter:'all', leadSort:'priority', leadStage:'all', showN:20, closed:{}}};
+    ui:{tab:'dash', seeded:false, ctlOpen:true, mapTab:'search', pipeView:'list', pipeFilter:'all', leadSort:'priority', leadStage:'all', showN:20, closed:{}}};
 }
 function cleanFacts(f){
   f=(f && typeof f==='object') ? f : {}; const o={};
@@ -105,7 +105,7 @@ function normalize(raw){
   const m=(raw.map && typeof raw.map==='object') ? raw.map : {};
   if(m.view && typeof m.view==='object'){ const la=Number(m.view.lat), lo=Number(m.view.lon), z=Number(m.view.z); if(Math.abs(la)<=85 && Math.abs(lo)<=180 && z>=2 && z<=19) d.map.view={lat:la, lon:lo, z}; }
   if(m.pin && typeof m.pin==='object'){ const la=Number(m.pin.lat), lo=Number(m.pin.lon); if(Math.abs(la)<=90 && Math.abs(lo)<=180) d.map.pin={lat:la, lon:lo, label:str(m.pin.label,80)}; }
-  d.map.radius=Math.round(num(m.radius,200,32000,1609)); d.map.crit=critClean(m.crit); d.map.lens=Object.keys(LENS).includes(m.lens)?m.lens:'balanced';
+  d.map.radius=Math.round(num(m.radius,200,32000,1609)); d.map.crit=critClean(m.crit && typeof m.crit==='object' ? m.crit : {preset:'targets'}); d.map.lens=Object.keys(LENS).includes(m.lens)?m.lens:'balanced';
   d.map.offer=(Array.isArray(m.offer)?m.offer:[]).filter(k=>SERVICE_FAMILIES[k]);
   const se=(raw.search && typeof raw.search==='object') ? raw.search : {};
   if(se.last && typeof se.last==='object' && Array.isArray(se.last.items)){
@@ -121,7 +121,7 @@ function normalize(raw){
   d.counters.quote=Math.max(d.counters.quote, maxRef);
   if(raw.route && typeof raw.route==='object') d.route={day:/^\d{4}-\d{2}-\d{2}$/.test(String(raw.route.day||''))?raw.route.day:'', ids:(Array.isArray(raw.route.ids)?raw.route.ids:[]).map(i=>str(i,40)).slice(0,40)};
   const u=(raw.ui && typeof raw.ui==='object') ? raw.ui : {};
-  d.ui.seeded=u.seeded===true; d.ui.tab=['dash','map','leads','pipe','settings'].includes(u.tab)?u.tab:'dash'; d.ui.mapTab=['search','saved','recent'].includes(u.mapTab)?u.mapTab:'search';
+  d.ui.seeded=u.seeded===true; d.ui.ctlOpen=u.ctlOpen!==false; d.ui.tab=['dash','map','leads','pipe','settings'].includes(u.tab)?u.tab:'dash'; d.ui.mapTab=['search','saved','recent'].includes(u.mapTab)?u.mapTab:'search';
   d.ui.pipeView=['list','boards','map'].includes(u.pipeView)?u.pipeView:'list'; d.ui.pipeFilter=['all','high','overdue','quiet'].includes(u.pipeFilter)?u.pipeFilter:'all';
   d.ui.leadSort=['priority','recent','value','name'].includes(u.leadSort)?u.leadSort:'priority'; d.ui.leadStage=(u.leadStage==='all'||STAGES.includes(u.leadStage))?u.leadStage:'all';
   d.ui.closed=(u.closed && typeof u.closed==='object') ? Object.fromEntries(Object.entries(u.closed).filter(([k,v])=>STAGES.includes(k)).map(([k,v])=>[k,!!v])) : {};
