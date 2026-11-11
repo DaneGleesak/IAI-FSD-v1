@@ -73,5 +73,6 @@ The app has one network function, `fetchJSON` in `js/ui.js` (`credentials:'omit'
 | `tile.openstreetmap.org` | only while the Territory Map is open with lookups on | the tile coordinates being viewed |
 | `overpass-api.de` | on tapping Search, after the exact request is shown | centre point, radius, filters |
 | `nominatim.openstreetmap.org` | on tapping Go/Research, after the exact request is shown | the address typed |
+| `gis.cuyahogacounty.gov` | on tapping “Look up county record”, after the exact request is shown | one building's map position (longitude, latitude) |
 
 Plain links the owner taps (Call, Text, Email, Apple Maps, NWS forecast, FAA LAANC, web search, Ohio business search) are ordinary `<a>` links the phone opens; the app never fetches them. `tests/outside.js` and `tests/hygiene.js` enforce this.

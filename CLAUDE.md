@@ -5,7 +5,7 @@ This app will be used in the field. Every change must keep the owner's saved dat
 ## Shape
 - No framework, no build. Plain HTML/CSS/JS, classic `<script>` tags sharing global scope. Load order is fixed in `index.html`: engine → core → map → ui → work → leads → territory → dashboard → pipeline → settings → app.
 - `sw.js` caches the app shell (network-first). **Bump `CACHE` in `sw.js` on every release** and add any new file to `ASSETS`.
-- Outside requests: only the three OpenStreetMap hosts, only after lookups are turned on and the exact request is shown, only via `fetchJSON` in `js/ui.js`. Never send a lead, contact, price or note. Add nothing else without the owner's approval.
+- Outside requests: only the three OpenStreetMap hosts and the Cuyahoga County parcel server (`gis.cuyahogacounty.gov`, owner-approved: it gets one building's map position and nothing else), only after lookups are turned on and the exact request is shown, only via `fetchJSON` in `js/ui.js`. Never send a lead, contact, price or note. Add nothing else without the owner's approval.
 - Netlify copies only app files into `dist/` (`netlify.toml`). `docs/` and `tests/` are never served.
 
 ## Hard rules

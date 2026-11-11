@@ -195,7 +195,7 @@ function piContacts(l, prev){
   const tl=l.events.slice().sort((a,b)=>b.ts-a.ts).filter(e=>!e.init).slice(0,12);
   return (prev?'<div class="card soft"><p class="muted">Add this building to your pipeline to record who owns it, who decides, and what happens next.</p></div>':'')+
     '<section class="card"><h3>Suspected decision maker</h3>'+(dm?person(dm):'<p class="muted">No one named yet.</p><p class="muted sm">✨ For a '+esc(cat.label.toLowerCase())+', that is usually the '+esc(cat.role)+'.</p>'+(prev?'':'<button class="btn quiet" data-act="contact-edit" data-id="'+id+'">'+ic('plus')+' Add the decision maker</button>'))+'</section>'+
-    '<section class="card"><h3>Owner & management</h3>'+facts+'</section>'+
+    countyCard(l,prev)+'<section class="card"><h3>Owner & management</h3>'+facts+'</section>'+
     (others.length||!prev?'<section class="card"><div class="row-between"><h3>Other contacts</h3>'+(prev?'':'<button class="linkbtn" data-act="contact-edit" data-id="'+id+'">Add</button>')+'</div>'+(others.length?others.map(person).join(''):'<p class="muted sm">None yet.</p>')+'</section>':'')+
     '<section class="card"><h3>Where to look it up</h3><p class="muted sm">These open a web search or map when you tap. The app sends nothing.</p><div class="chips">'+lookupLinks(l).map(x=>'<a class="chip" href="'+esc(x[1])+'" target="_blank" rel="noopener noreferrer">'+esc(x[0])+'</a>').join('')+'</div></section>'+
     '<section class="card"><div class="row-between"><h3>Outreach & communication</h3></div>'+
@@ -204,6 +204,50 @@ function piContacts(l, prev){
       (tl.length?'<ol class="tl">'+tl.map(e=>'<li><i style="background:'+(e.type==='stage'?(STAGE_COL[e.to]||'#0A5EB6'):'#19DDFA')+'"></i><div><b>'+esc(e.type==='stage'?'Moved to '+e.to:e.type==='touch'?(TOUCH_HOW[e.how]||'Contact'):e.type==='quote'?'Quote '+(e.ref||''):'Note')+'</b>'+(e.text?'<p>'+esc(e.text.slice(0,160))+'</p>':'')+'<small>'+esc(whenLabel(e.ts))+'</small></div></li>').join('')+'</ol>':'<p class="muted sm">Nothing logged yet.</p>')+
     '</section>';
 }
+/* the county's own public parcel record: owner, mailing address, land use, commercial area, units */
+function countyCard(l, prev){
+  const key=l.demo ? '' : countyFor(l.lat,l.lon); if(!key) return '';
+  const C=COUNTIES[key], c=(l.county && l.county.key===key) ? l.county : null;
+  const rec=(r,i)=>'<div class="crec"><b>'+esc(r.owner||'No owner listed')+'</b>'+
+    kv('Parcel',esc(r.pin||'not listed'))+(r.site?kv('Address on record',esc(r.site)):'')+(r.mailTo?kv('Owner’s mailing address',esc(r.mailTo)):'')+
+    ((r.lucText||r.luc)?kv('Land use',esc([r.lucText, r.luc?'('+r.luc+')':''].filter(Boolean).join(' '))):'')+
+    (r.comArea?kv('Commercial building area',fmt(r.comArea)+' sq ft'):'')+(r.units?kv('Living units',fmt(r.units)):'')+(r.resArea?kv('Residential area',fmt(r.resArea)+' sq ft'):'')+
+    (r.saleTs?kv('Last transfer',esc(shortDate(dayStr(new Date(r.saleTs))))+(r.saleAmt?' · $'+fmt(r.saleAmt):'')):'')+
+    (r.owner?'<button class="btn quiet" data-act="county-use" data-i="'+i+'">'+(c.pick===i?'✓ Used as the owner':'Use as owner')+'</button>':'')+'</div>';
+  const look='<button class="btn quiet" data-act="county-look">'+ic('search')+' '+(c?'Look up again':'Look up county record')+'</button>';
+  return '<section class="card" id="countyCard"><h3>County record</h3>'+
+    (c ? (c.recs.length ? '<p class="muted sm">From '+esc(C.name)+' public parcel records, looked up '+esc(whenLabel(c.ts))+'. ✨ The parcel is matched by the building’s map position, so check it is the right one. The owner on a deed is often a holding company, not who runs the building.</p>'+c.recs.map(rec).join('')
+        : '<p class="muted sm">No parcel was found at this building’s map position.</p>')
+      : '<p class="muted sm">'+esc(C.name)+' publishes its parcel records: owner, mailing address, land use, building area and unit counts. Looking one up sends only this building’s map position, and you see the exact request first.</p>')+
+    (state.settings.lookups.on ? look : '<p class="muted sm">Lookups are off. Turn them on in Settings to look this up.</p>')+'</section>';
+}
+ACT['county-look']=()=>{
+  const l=subjectLead(); if(!l || l.demo) return; const key=countyFor(l.lat,l.lon);
+  if(!key){ toast('That spot isn’t in a county the app can look up yet'); return; }
+  if(!state.settings.lookups.on){ toast('Turn on lookups in Settings first'); return; }
+  const C=COUNTIES[key], q=countyQuery(l.lat,l.lon);
+  confirmSend({title:'🏛 Look up the county record?', intro:'The county’s public parcel records are asked which parcel sits at this building’s map position. If nothing is found, the same question goes to the layer for the other part of the county.',
+    hosts:[C.host], lines:['📍 '+l.lat.toFixed(5)+', '+l.lon.toFixed(5), '🏛 '+esc(C.name)+' open parcel data'], payload:q, ok:'Look up'}, async text=>{
+    const b=$('#countyCard [data-act="county-look"]'); if(b){ b.disabled=true; b.textContent='Looking…'; }
+    try{
+      let recs=[];
+      for(let i=0;i<C.layers.length && !recs.length;i++){
+        const j=await fetchJSON(C.layers[i][0]+'/query?'+text, {method:'GET'});
+        if(j && j.error) throw new Error('HTTP '+(j.error.code||'error'));
+        recs=parseCounty(j);
+      }
+      const L=subjectLead(); if(!L) return;
+      L.county={key, ts:Date.now(), recs, pick:-1}; if(!L._temp) save();
+      toast(recs.length ? '✓ County record found' : 'No county record at this spot'); paintSheet();
+    }catch(e){ toast('County lookup failed: '+netMsg(e)); paintSheet(); }
+  });
+};
+ACT['county-use']=el=>{
+  const l=subjectLead(), i=Number(el.dataset.i), r=l && l.county && l.county.recs[i]; if(!r || !r.owner) return;
+  const go=()=>{ l.county.pick=i; l.f.owner=blankFact(r.owner,'estimated',(COUNTIES[l.county.key]||{}).name+' parcel record, '+shortDate(dayStr(new Date(l.county.ts))));
+    if(!l._temp) save(); toast('✓ Owner set from the county record. Confirm it before you rely on it.'); paintSheet(); };
+  if(l.f.owner.v && l.f.owner.v!==r.owner) askConfirm('Replace the owner you have?','The owner now reads <b>'+esc(l.f.owner.v)+'</b>. The county record says <b>'+esc(r.owner)+'</b>.','Replace',go); else go();
+};
 function piServices(l, prev){
   const S=state.settings, id=esc(l.id), pbs=solutionsFor(S.playbooks, l.cat, l.bld.levels), pb=pbs[0]||null, sel=new Set(l.services);
   const svc=S.services.filter(s=>s.on || sel.has(s.id));

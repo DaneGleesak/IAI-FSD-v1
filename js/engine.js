@@ -382,3 +382,37 @@ function solutionsFor(playbooks, cat, levels){
   out.sort((a,b)=>b.s-a.s);
   return out.map(x=>x.p);
 }
+
+/* ---------- county parcel records: free public records a county publishes (Cuyahoga first) ----------
+   Only the building's map position is sent. What comes back is labelled "county record" and is never
+   put in the owner fact until the person taps "Use as owner". */
+const COUNTIES={
+  cuyahoga:{name:'Cuyahoga County', host:'gis.cuyahogacounty.gov', box:[41.10,-82.00,41.65,-81.25],
+    layers:[['https://gis.cuyahogacounty.gov/server/rest/services/Open_Data_Parcels/MapServer/1','parcels outside Cleveland'],
+            ['https://gis.cuyahogacounty.gov/server/rest/services/Open_Data_Parcels/MapServer/0','parcels inside Cleveland']]}
+};
+function countyFor(lat, lon){
+  lat=Number(lat); lon=Number(lon); if(!Number.isFinite(lat) || !Number.isFinite(lon)) return '';
+  return Object.keys(COUNTIES).find(k=>{ const b=COUNTIES[k].box; return lat>=b[0] && lat<=b[2] && lon>=b[1] && lon<=b[3]; }) || '';
+}
+function countyQuery(lat, lon){
+  return 'f=json&geometry='+Number(lon).toFixed(6)+','+Number(lat).toFixed(6)+'&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=*&returnGeometry=false&resultRecordCount=10';
+}
+function countyRecClean(r){
+  if(!r || typeof r!=='object') return null;
+  const n=v=>{ v=Number(v); return Number.isFinite(v) && v>0 ? Math.round(v) : null; };
+  const o={pin:str(r.pin,20), owner:str(r.owner,120), mailTo:str(r.mailTo,200), site:str(r.site,120), luc:str(r.luc,6), lucText:str(r.lucText,40), zoning:str(r.zoning,8),
+    comBldgs:n(r.comBldgs), comArea:n(r.comArea), units:n(r.units), resArea:n(r.resArea), saleTs:n(r.saleTs), saleAmt:n(r.saleAmt), taxYear:n(r.taxYear)};
+  return (o.pin || o.owner) ? o : null;
+}
+function parseCounty(json){
+  const fs=(json && Array.isArray(json.features)) ? json.features : [];
+  return fs.slice(0,10).map(f=>{
+    const a={}, src=(f && f.attributes && typeof f.attributes==='object') ? f.attributes : {}; Object.keys(src).forEach(k=>{ a[k.toLowerCase()]=src[k]; });
+    const owner=str(a.deeded_owner,120).trim(), mname=str(a.mail_name,109).trim();
+    const street=[a.mail_addr_street,a.mail_unit].map(x=>str(x,50).trim()).filter(Boolean).join(' '), city=[a.mail_city,a.mail_state].map(x=>str(x,30).trim()).filter(Boolean).join(', ');
+    const mail=[mname && mname.toLowerCase()!==owner.toLowerCase() ? mname : '', street, (city+' '+str(a.mail_zip,10).trim()).trim()].filter(Boolean).join(' · ');
+    return countyRecClean({pin:a.parcelpin||a.parcel_id, owner, mailTo:mail, site:a.par_addr_all, luc:a.tax_luc, lucText:a.tax_luc_description, zoning:a.zoning_code,
+      comBldgs:a.com_bldg_count, comArea:a.total_com_use_area, units:a.com_living_units, resArea:a.total_res_liv_area, saleTs:a.transfer_date, saleAmt:a.sales_amount, taxYear:a.tax_year});
+  }).filter(Boolean);
+}

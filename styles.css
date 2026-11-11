@@ -230,3 +230,4 @@ details{margin:8px 0}summary{min-height:44px;display:flex;align-items:center;fon
 /* map search: the Search button stays in reach while the filters are open; results land clear of the sticky header */
 .actionbar{position:sticky;bottom:calc(60px + var(--sb));z-index:5;background:var(--card);margin:10px -14px 0;padding:10px 14px;border-top:1px solid var(--line)}
 #results,#mapHost{scroll-margin-top:76px}.btnrow2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.crec{border-top:1px solid var(--line);margin-top:10px;padding-top:10px;overflow-wrap:anywhere}.crec>b{display:block;font-size:16px;margin-bottom:4px}.crec .btn{margin-top:8px}
