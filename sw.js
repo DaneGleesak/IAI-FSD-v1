@@ -1,7 +1,7 @@
 // IAI Field Sales Dashboard: service worker.
 // Caches the app files so the app opens fast and works offline. It never touches saved data
 // (that stays in this browser) and it ignores every request that goes to another website.
-const CACHE = 'iai-fsd-v1-r6';
+const CACHE = 'iai-fsd-v1-r7';
 const ASSETS = [
   './', 'index.html', 'styles.css', 'manifest.json',
   'js/engine.js', 'js/core.js', 'js/map.js', 'js/ui.js', 'js/work.js', 'js/leads.js',

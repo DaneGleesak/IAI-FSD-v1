@@ -124,7 +124,8 @@ function normalize(raw){
   if(se.last && typeof se.last==='object' && Array.isArray(se.last.items)){
     const items=se.last.items.slice(0,400).map(candClean).filter(Boolean), L=se.last;
     d.search.last={ts:Number(L.ts)||0, lat:num(L.lat,-90,90,0), lon:num(L.lon,-180,180,0), radius:Math.round(num(L.radius,200,32000,1609)), crit:critClean(L.crit),
-      label:str(L.label,80), total:Math.round(num(L.total,0,1e6,items.length)), airports:Array.isArray(L.airports)?L.airports.slice(0,20).map(a=>({lat:num(a&&a.lat,-90,90,0), lon:num(a&&a.lon,-180,180,0), name:str(a&&a.name,80)})):[], items};
+      label:str(L.label,80), total:Math.round(num(L.total,0,1e6,items.length)), airports:Array.isArray(L.airports)?L.airports.slice(0,20).map(a=>({lat:num(a&&a.lat,-90,90,0), lon:num(a&&a.lon,-180,180,0), name:str(a&&a.name,80)})):[], items,
+      partial:(Array.isArray(L.partial)?L.partial:[]).map(x=>str(x,40)).filter(Boolean).slice(0,12)};
   }
   d.search.runs=(Array.isArray(se.runs)?se.runs:[]).filter(r=>r && typeof r==='object').slice(0,30).map(r=>({id:str(r.id||uid(),20), ts:Number(r.ts)||0, label:str(r.label,80), lat:num(r.lat,-90,90,0), lon:num(r.lon,-180,180,0), radius:Math.round(num(r.radius,200,32000,1609)), crit:critClean(r.crit), found:Math.round(num(r.found,0,1e6,0)), kept:Math.round(num(r.kept,0,1e6,0))}));
   d.search.saved=(Array.isArray(se.saved)?se.saved:[]).filter(r=>r && typeof r==='object').slice(0,60).map(r=>({id:str(r.id||uid(),20), ts:Number(r.ts)||0, name:str(r.name,80), lat:num(r.lat,-90,90,0), lon:num(r.lon,-180,180,0), radius:Math.round(num(r.radius,200,32000,1609)), crit:critClean(r.crit)}));

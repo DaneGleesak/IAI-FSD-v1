@@ -238,6 +238,33 @@ function buildQuery(lat, lon, r, crit){
   if(!crit.types.length || crit.minLevels>=5) P.push('way["building"]["building:levels"~"'+lv+'"]'+A+';');
   return '[out:json][timeout:25];\n(\n  '+P.join('\n  ')+'\n)->.b;\n.b out geom;\nnwr["aeroway"~"^(aerodrome|heliport)$"](around:'+Math.round(r+16000)+','+lat.toFixed(5)+','+lon.toFixed(5)+');\nout center tags;';
 }
+/* The same search as buildQuery, split into small separate requests, one per kind of building. A busy server
+   or a big area then costs one part, not everything. Exact tag values (not patterns) let the server use its index.
+   Airports are their own small request: losing them only loses the airport distance. */
+function buildQueries(lat, lon, r, crit){
+  crit=critClean(crit);
+  const A='(around:'+Math.round(r)+','+lat.toFixed(5)+','+lon.toFixed(5)+')', types=crit.types.length ? crit.types : TYPE_KEYS, lv3=levelsRe(3), out=[];
+  const wrap=P=>'[out:json][timeout:40];\n(\n  '+P.join('\n  ')+'\n)->.b;\n.b out geom;', ex=(k,v)=>'["'+k+'"="'+v+'"]';
+  types.forEach(k=>{
+    const d=TYPES[k]; if(!d) return; const P=[];
+    d.b.forEach(v=>{ P.push('way'+ex('building',v)+A+';'); P.push('relation'+ex('building',v)+A+';'); });
+    (d.tall||[]).forEach(v=>{ ['way','relation'].forEach(w=>P.push(w+ex('building',v)+'["building:levels"~"'+lv3+'"]'+A+';')); });
+    (d.t||[]).forEach(v=>P.push('way'+ex('tourism',v)+'["building"]'+A+';'));
+    (d.a||[]).forEach(v=>P.push('way'+ex('amenity',v)+'["building"]'+A+';'));
+    out.push({label:d.label, q:wrap(P)});
+  });
+  if(!crit.types.length || crit.minLevels>=5) out.push({label:'Tall buildings', q:wrap(['way["building"]["building:levels"~"'+levelsRe(Math.max(2,crit.minLevels||2))+'"]'+A+';'])});
+  out.push({label:'Airports', optional:true, q:'[out:json][timeout:25];\nnwr["aeroway"~"^(aerodrome|heliport)$"](around:'+Math.round(r+16000)+','+lat.toFixed(5)+','+lon.toFixed(5)+');\nout center tags;'});
+  return out;
+}
+/* the requests as one block of text (what the owner reads first), and back into requests */
+function joinQueries(parts){ return parts.map((x,i)=>'// ---- request '+(i+1)+' of '+parts.length+': '+x.label+' ----\n'+x.q).join('\n\n'); }
+function splitQueries(text){
+  const bits=String(text).split(/^\/\/ ---- request \d+ of \d+: (.*?) ----$/m), out=[];
+  if(bits.length<3) return [{label:'Buildings', q:String(text).trim()}];
+  for(let i=1;i<bits.length;i+=2){ const q=(bits[i+1]||'').trim(); if(q) out.push({label:bits[i], optional:bits[i]==='Airports', q}); }
+  return out;
+}
 /* the one-building query used when you research an address */
 function buildQueryAt(lat, lon){
   return '[out:json][timeout:20];\n(\n  way["building"](around:45,'+lat.toFixed(5)+','+lon.toFixed(5)+');\n  relation["building"](around:45,'+lat.toFixed(5)+','+lon.toFixed(5)+');\n)->.b;\n.b out geom;\nnwr["aeroway"~"^(aerodrome|heliport)$"](around:16000,'+lat.toFixed(5)+','+lon.toFixed(5)+');\nout center tags;';

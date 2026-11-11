@@ -59,7 +59,7 @@ const SECRETS = ['ZZ-SECRET-NOTE','secret.person@example.test','555-0199','ZZ-SE
   t.ok(/around/.test(body) && /building/.test(body), 'the building search shows the Overpass request it will send');
   t.ok(SECRETS.every(x=>!body.includes(x)), 'the request text holds none of the planted private data');
   await page.click('#cfOk'); await page.waitForSelector('#results .rcard', {timeout:8000});
-  const op = T.outside.filter(r=>/overpass/.test(r.url)); t.eq(op.length, 1, 'one building-search request was made');
+  const op = T.outside.filter(r=>/overpass/.test(r.url)); t.eq(op.length, (body.match(/^\/\/ ---- request /gm)||[]).length, 'one small building-search request was made for each part shown ('+op.length+')');
   t.eq(op[0].method, 'POST', 'it is a POST to the building-search host');
   const rows = await page.$$eval('#results .rcard', e=>e.map(x=>x.innerText));
   t.ok(rows.length>=2, 'ranked buildings come back ('+rows.length+')');

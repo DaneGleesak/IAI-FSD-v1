@@ -45,11 +45,13 @@ async function launch(opts){
   const ctx = await browser.newContext({ viewport:{width:opts.w||390,height:opts.h||844}, deviceScaleFactor:1, hasTouch:!!opts.touch, isMobile:!!opts.touch, serviceWorkers:'block', permissions:['clipboard-read','clipboard-write'], acceptDownloads:true });
   const outside = [];           // every request that left the app's own origin
   const bodies = [];            // text sent in those requests
+  const hooks = { overpass:null };   // a test can make the building search misbehave: (body, n) => null | {status} | {json}
+  let opN = 0;
   await ctx.route(u=>!u.href.startsWith('http://localhost:'+port), async route=>{
     const r = route.request(), url = r.url();
     outside.push({url, method:r.method()}); if(r.postData()) bodies.push(r.postData()); bodies.push(url);
     if(/tile\.openstreetmap\.org/.test(url)) return route.fulfill({status:200, contentType:'image/png', body:PNG});
-    if(/overpass-api\.de/.test(url)) return route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(mockOverpass())});
+    if(/overpass-api\.de/.test(url)){ const h = hooks.overpass && hooks.overpass(decodeURIComponent(String(r.postData()||'').replace(/^data=/,'').replace(/\+/g,' ')), ++opN); if(h && h.status) return route.fulfill({status:h.status, contentType:'text/plain', body:'busy'}); if(h && h.json) return route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(h.json)}); return route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(mockOverpass())}); }
     if(/nominatim\.openstreetmap\.org/.test(url)) return route.fulfill({status:200, contentType:'application/json', body:JSON.stringify([{display_name:'1 Test Ave, Mocktown', lat:'39.9600', lon:'-82.9900', osm_type:'way', osm_id:9001, type:'office', category:'building', address:{house_number:'1', road:'Test Ave', city:'Mocktown'}}])});
     if(/gis\.cuyahogacounty\.gov/.test(url)) return route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(mockCounty(url))});
     return route.abort();
@@ -60,7 +62,7 @@ async function launch(opts){
   page.on('console', m=>{ if(m.type()==='error' && !/Failed to load resource/.test(m.text())) errors.push('console: '+m.text()); });
   page.on('dialog', d=>{ dialogs.push(d.type()+': '+d.message()); d.dismiss().catch(()=>{}); });
   const base = 'http://localhost:'+port+'/';
-  return { port, base, srv, browser, ctx, page, outside, bodies, errors, dialogs,
+  return { port, base, srv, browser, ctx, page, outside, bodies, errors, dialogs, hooks,
     async open(q){ await page.goto(base+(q||'')); await page.waitForSelector('#nav button'); },
     async close(){ await browser.close(); srv.close(); } };
 }

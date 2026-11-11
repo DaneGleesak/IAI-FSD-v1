@@ -179,7 +179,15 @@ async function fetchJSON(url, opt){
     return await r.json();
   } finally { clearTimeout(t); }
 }
-function netMsg(e){ const m=String(e && e.message || e); return /429|504|abort/i.test(m) ? 'The service is busy or the area is too big. Try a smaller radius, or try again in a minute.' : /Failed to fetch|NetworkError|Load failed/i.test(m) ? 'No connection to the service.' : m.slice(0,80); }
+function netMsg(e){
+  const m=String(e && e.message || e), code=(m.match(/HTTP (\d{3})/)||[])[1];
+  if(code==='429') return 'The service says too many requests (HTTP 429). Wait a minute, then try again.';
+  if(code==='502'||code==='503'||code==='504') return 'The service is overloaded (HTTP '+code+'). Try again in a minute.';
+  if(/SERVER-TIMEOUT/.test(m)) return 'The server ran out of time on this part. Try a smaller radius.';
+  if(/abort/i.test(m)) return 'No answer after a minute. Try again, or a smaller radius.';
+  if(/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'No connection to the service.';
+  return m.slice(0,80);
+}
 /* o = {title, intro, hosts[], lines[], payload, editable, ok}. Unless you chose "don't show again", you see exactly what is sent. */
 function confirmSend(o, go){
   if(state.settings.lookups.autoSend){ go(o.payload); return; }

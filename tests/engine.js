@@ -4,7 +4,7 @@ const fs = require('fs'), path = require('path'), vm = require('vm');
 const { suite } = require('./lib');
 const t = suite('engine');
 const ctx = {}; vm.createContext(ctx);
-vm.runInContext(fs.readFileSync(path.resolve(__dirname,'../js/engine.js'),'utf8')+'\nthis.E={detailPreset,detailClean,detailName,DETAIL,DETAIL_KEYS,DETAIL_PRESETS,countyFor,countyQuery,parseCounty,countyRecClean,COUNTIES,quoteCalc,defaultServices,rankCands,parseOverpass,keepCand,candClean,buildQuery,critClean,ringStats,solutionsFor,defaultPlaybooks,SERVICE_FAMILIES};', ctx);
+vm.runInContext(fs.readFileSync(path.resolve(__dirname,'../js/engine.js'),'utf8')+'\nthis.E={buildQueries,joinQueries,splitQueries,detailPreset,detailClean,detailName,DETAIL,DETAIL_KEYS,DETAIL_PRESETS,countyFor,countyQuery,parseCounty,countyRecClean,COUNTIES,quoteCalc,defaultServices,rankCands,parseOverpass,keepCand,candClean,buildQuery,critClean,ringStats,solutionsFor,defaultPlaybooks,SERVICE_FAMILIES};', ctx);
 const E = ctx.E;
 
 /* defaults: no price is invented anywhere */
@@ -77,4 +77,18 @@ t.eq(E.detailName(dS),'simple','a Simple mix is named Simple'); t.eq(E.detailNam
 t.eq(E.detailName(Object.assign({},dS,{why:true})),'custom','any other mix is Custom');
 t.eq(E.detailClean(null), dS, 'nothing saved gives Simple'); t.eq(E.detailClean({why:'yes', addr:false, junk:true}), Object.assign({},dS,{addr:false}), 'odd values are ignored, real ones kept, unknown keys dropped');
 t.eq(E.detailClean([1,2]), dS, 'an array is not a setting');
+/* the building search, split into small requests */
+const bq = E.buildQueries(41.4577,-81.4927,4828,E.critClean({preset:'targets'}));
+t.eq(bq.map(x=>x.label).sort(), ['Airports','Apartments','Hotels','Medical','Offices'], 'one request for each kind of building you chose, then the airports');
+t.ok(bq.length>=3 && bq[bq.length-1].label==='Airports' && bq[bq.length-1].optional, 'the airport request comes last and is optional');
+const bodies = bq.filter(x=>!x.optional);
+t.ok(bodies.every(x=>/\(around:4828,41\.45770,-81\.49270\)/.test(x.q)), 'every part asks about the same point and radius');
+t.ok(bodies.every(x=>!/"building"~"\^\(/.test(x.q)), 'building types are exact matches, not patterns, so the server can use its index');
+t.ok(bq.some(x=>/\["building"="hotel"\]/.test(x.q)) && bq.some(x=>/\["tourism"="hotel"\]\["building"\]/.test(x.q)), 'hotels are found by building and by tourism tag, as before');
+t.ok(bq.some(x=>/"building"="residential"\]\["building:levels"/.test(x.q)), 'tall residential buildings are still included');
+t.ok(bq.every(x=>/\[out:json\]\[timeout:\d+\]/.test(x.q)), 'each part has its own server time limit');
+const joined = E.joinQueries(bq), back = E.splitQueries(joined);
+t.eq(back.map(x=>x.label), bq.map(x=>x.label), 'the requests read as one block of text and split back the same'); t.eq(back.map(x=>x.q), bq.map(x=>x.q), 'word for word');
+t.eq(E.splitQueries('[out:json];out;').length, 1, 'plain text with no markers is one request');
+t.ok(E.buildQueries(41.4,-81.4,1609,E.critClean({preset:'highrise'})).length>=2, 'the high-rise preset builds its own parts');
 t.done();
