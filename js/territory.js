@@ -14,7 +14,7 @@ function rowsNow(){
 }
 function viewMap(m){
   setTop('Territory Map','Source, rank and research buildings');
-  if(!state.settings.lookups.on){ m.innerHTML=consentCard(); return; }
+  if(!state.settings.lookups.on){ m.innerHTML=consentCard()+packRow()+(state.search.last?'<div id="results"></div>':''); if(state.search.last) paintResults(); return; }
   m.innerHTML='<div class="seg" role="tablist">'+MAP_TABS.map(([k,l])=>'<button role="tab" aria-selected="'+(state.ui.mapTab===k)+'" class="'+(state.ui.mapTab===k?'on':'')+'" data-act="map-tab" data-t="'+k+'">'+l+'</button>').join('')+'</div><div id="mapBody"></div>';
   const body=$('#mapBody',m);
   if(state.ui.mapTab==='saved') paintSaved(body); else if(state.ui.mapTab==='recent') paintRecent(body); else paintSearch(body);
@@ -141,8 +141,38 @@ ACT['area-use']=el=>{ const a=state.search.saved.find(x=>x.id===el.dataset.id); 
 ACT['area-del']=el=>{ const i=state.search.saved.findIndex(x=>x.id===el.dataset.id); if(i<0) return; const [a]=state.search.saved.splice(i,1); save(); show('map'); toast('Area deleted',{undo:()=>{ state.search.saved.splice(i,0,a); save(); show('map'); }}); };
 function paintRecent(body){
   const R=state.search.runs;
-  body.innerHTML=R.length ? R.map(r=>areaCard(r,{use:'run-use', useLabel:'Search here again', extra:'<p class="muted sm">'+esc(whenLabel(r.ts))+' · '+plural(r.found,'building')+' on the map, '+r.kept+' matched</p>'})).join('') : '<div class="empty">No searches yet. Your last 30 searches show up here.</div>';
+  body.innerHTML=packRow()+(R.length ? R.map(r=>areaCard(r,{use:'run-use', useLabel:'Search here again', extra:'<p class="muted sm">'+esc(whenLabel(r.ts))+' · '+plural(r.found,'building')+' on the map, '+r.kept+' matched</p>'})).join('') : '<div class="empty">No searches yet. Your last 30 searches show up here.</div>');
 }
+/* ---------- a scan made on a Mac mini: a file, read here, nothing sent anywhere ---------- */
+function packRow(){
+  return '<section class="card"><h3>📥 Scan file</h3><p class="muted sm">A scan made on a Mac mini (tools/market-scan.mjs) comes in as a file. Reading it sends nothing anywhere and does not touch your leads.</p><button class="btn quiet" data-act="pack-import">Import a scan file</button></section>';
+}
+function packParse(text){
+  let j; try{ j=JSON.parse(text); }catch(e){ return {error:'That file isn’t a scan file.'}; }
+  if(!j || typeof j!=='object' || j.kind!=='iai-market-pack' || j.v!==1 || !Array.isArray(j.items)) return {error:'That file isn’t an IAI scan file.'};
+  const c=(j.center && typeof j.center==='object') ? j.center : {}, lat=Number(c.lat), lon=Number(c.lon);
+  if(!(Math.abs(lat)<=90 && Math.abs(lon)<=180) || c.lat==null) return {error:'The scan has no usable place in it.'};
+  const items=j.items.slice(0,400).map(candClean).filter(Boolean); if(!items.length) return {error:'The scan has no buildings in it.'};
+  const made=Date.parse(j.made); const label=str(c.label,80)||(lat.toFixed(3)+', '+lon.toFixed(3));
+  return {lat, lon, label, radius:Math.round(num(j.radius,200,32000,1609)), crit:critClean(j.crit), total:Math.round(num(j.total,0,1e6,items.length)), kept:Math.round(num(j.kept,0,1e6,items.length)),
+    airports:Array.isArray(j.airports)?j.airports.slice(0,20).map(a=>({lat:num(a&&a.lat,-90,90,0), lon:num(a&&a.lon,-180,180,0), name:str(a&&a.name,80)})):[], items, ts:Number.isFinite(made)?made:Date.now()};
+}
+function packApply(p){
+  const M=state.map; M.pin={lat:p.lat, lon:p.lon, label:p.label}; M.radius=p.radius; M.crit=p.crit; M.view=null;
+  state.search.last={ts:p.ts, lat:p.lat, lon:p.lon, radius:p.radius, crit:p.crit, label:p.label, total:p.total, airports:p.airports, items:p.items};
+  state.search.runs.unshift({id:uid(), ts:p.ts, label:str(p.label+' (scan file)',80), lat:p.lat, lon:p.lon, radius:p.radius, crit:p.crit, found:p.total, kept:p.kept}); state.search.runs=state.search.runs.slice(0,30);
+  state.ui.mapTab='search'; state.ui.ctlOpen=false; MSHOW=20; save(); toast('✓ Scan shown: '+plural(p.items.length,'building')); show('map');
+}
+ACT['pack-import']=()=>{
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='application/json,.json'; inp.style.display='none';
+  inp.addEventListener('change',async()=>{
+    const f=inp.files&&inp.files[0]; inp.remove(); if(!f) return;
+    if(f.size>8e6){ toast('That file is too big to be a scan'); return; }
+    const p=packParse(await f.text()); if(p.error){ toast(p.error); return; }
+    askConfirm('Show this scan?','<b>'+esc(p.label)+'</b> · '+esc(radLabel(p.radius))+' · '+plural(p.items.length,'building')+' ranked, scanned '+esc(whenLabel(p.ts))+'. It replaces the results on the Map. Your leads are not touched.','Show it',()=>packApply(p));
+  });
+  document.body.appendChild(inp); inp.click();
+};
 ACT['run-use']=el=>{ const a=state.search.runs.find(x=>x.id===el.dataset.id); if(a) useArea(a,a.label); };
 
 /* ---------- Go to an address, or research one ---------- */

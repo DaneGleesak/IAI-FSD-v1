@@ -23,6 +23,7 @@ Legend: ✅ working and covered by a test · 🟡 working, partly simulated or l
 **Real (works today, no setup)**
 - All screens, saving, editing, undo, backup/restore, install, offline.
 - Ranking and quote maths from building numbers you or the map supply.
+- **Mac mini market scan**: `tools/market-scan.mjs` makes a ranked pack from OpenStreetMap on a Mac mini (same engine as the app); the phone imports it from a file with lookups on or off, and sends nothing (`tests/scan.js`). See `docs/MAC-MINI.md`.
 - Map search is map-first: after Search the filters fold into one line (“Change filters” brings them back) and the ranked results sit right under the map. A 3 mi radius is one tap, a fresh install starts on the hotels / apartments / offices / medical preset, and the Search button stays in reach while the filters are open (`tests/outside.js`).
 - Draft emails and quotes; opening a draft in the phone's mail app; copy to clipboard.
 - Call / Text / Email / Navigate links (plain `tel:`, `sms:`, `mailto:`, Apple Maps), followed only when tapped.
@@ -42,6 +43,7 @@ Legend: ✅ working and covered by a test · 🟡 working, partly simulated or l
   - **Planned (owner): Trellis** will transcribe calls so the app can understand each property better. Step 1 is attaching a transcript to the property's activity timeline (stored on the phone). Step 2 is a "what I heard" list the owner reviews (decision maker, timing, current vendor, objections, next step), each marked ✨ as a suggestion and added to the record only when the owner accepts it. Audio, if ever stored, goes in IndexedDB, never localStorage. A live link is a new outside host and needs the owner's approval first. Call-recording consent rules differ by state, so they should be checked before recording (this is not legal advice).
 - ⬜ Airspace/LAANC integration, weather window planning
 - ⬜ Multi-user accounts, cloud sync, team assignment
+- ⬜ Planned (owner): Mac mini lanes: sharing between reps, local AI for outreach, call transcription (`docs/MAC-MINI.md`); My Field Day home and quote-from-the-request (`docs/ROADMAP.md`)
 - ⬜ Customer-facing quote PDF, e-signature, invoicing
 - ⬜ Push notifications and calendar integration
 - ⬜ Voice notes (the quick-action button area is Call / Navigate / Note / Photo)
