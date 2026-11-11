@@ -40,9 +40,9 @@ function blankFact(v,st,src){ return {v:str(v||'',200), st: v ? (['estimated','v
 function defaultSender(){ return {name:'', company:'', phone:'', email:'', address:'', blurb:'We clean building exteriors, windows and facades, with drones.', optOut:'If you would rather not hear from me, reply “no thanks” and I will not follow up.'}; }
 function defaults(){
   return {v:1, properties:[],
-    settings:{lookups:{on:false, autoSend:false}, sender:defaultSender(), floorFt:null, services:defaultServices(), playbooks:defaultPlaybooks()},
+    settings:{lookups:{on:false, autoSend:false}, show:detailPreset('simple'), sender:defaultSender(), floorFt:null, services:defaultServices(), playbooks:defaultPlaybooks()},
     map:{view:null, pin:null, radius:1609, crit:critClean({preset:'targets'}), lens:'balanced', offer:[]},
-    search:{last:null, runs:[], saved:[]},
+    search:{last:null, runs:[], saved:[]}, review:{decisions:[]},
     counters:{quote:0},
     route:{day:'', ids:[]},
     ui:{tab:'dash', seeded:false, ctlOpen:true, mapTab:'search', pipeView:'list', pipeFilter:'all', leadSort:'priority', leadStage:'all', showN:20, closed:{}}};
@@ -56,6 +56,13 @@ function cleanCounty(c){
   if(!c || typeof c!=='object' || !COUNTIES[c.key]) return null;
   const recs=(Array.isArray(c.recs)?c.recs:[]).slice(0,10).map(countyRecClean).filter(Boolean), pk=Math.round(num(c.pick,-1,9,-1));
   return {key:c.key, ts:Number(c.ts)||0, recs, pick:(pk>=0 && pk<recs.length)?pk:-1};
+}
+/* one swipe-review choice: the building as it was, what was decided, when, and the lead it made (if any) */
+const MAX_DECISIONS=2500;
+function cleanDecision(x){
+  if(!x || typeof x!=='object') return null; const c=candClean(x.cand); if(!c) return null;
+  const d=REVIEW_CHOICES.some(r=>r[0]===x.d) ? x.d : null; if(!d) return null;
+  return {id:c.id, d, ts:Number(x.ts)||0, reason:str(x.reason,60), leadId:str(x.leadId,40), cand:c};
 }
 function cleanLead(x){
   if(!x || typeof x!=='object' || !x.id) return null;
@@ -94,6 +101,7 @@ function normalize(raw){
   const d=defaults(); raw=(raw && typeof raw==='object' && !Array.isArray(raw)) ? raw : {};
   const s=(raw.settings && typeof raw.settings==='object') ? raw.settings : {}, lk=(s.lookups && typeof s.lookups==='object') ? s.lookups : {};
   d.settings.lookups={on:lk.on===true, autoSend:lk.autoSend===true};
+  d.settings.show=detailClean(s.show);
   const snd=(s.sender && typeof s.sender==='object' && !Array.isArray(s.sender)) ? s.sender : {}, ds=defaultSender();
   d.settings.sender={name:str(snd.name,80), company:str(snd.company,120), phone:str(snd.phone,40), email:str(snd.email,120), address:str(snd.address,200),
     blurb: typeof snd.blurb==='string' ? str(snd.blurb,400) : ds.blurb, optOut: typeof snd.optOut==='string' ? str(snd.optOut,300) : ds.optOut};
@@ -120,13 +128,15 @@ function normalize(raw){
   }
   d.search.runs=(Array.isArray(se.runs)?se.runs:[]).filter(r=>r && typeof r==='object').slice(0,30).map(r=>({id:str(r.id||uid(),20), ts:Number(r.ts)||0, label:str(r.label,80), lat:num(r.lat,-90,90,0), lon:num(r.lon,-180,180,0), radius:Math.round(num(r.radius,200,32000,1609)), crit:critClean(r.crit), found:Math.round(num(r.found,0,1e6,0)), kept:Math.round(num(r.kept,0,1e6,0))}));
   d.search.saved=(Array.isArray(se.saved)?se.saved:[]).filter(r=>r && typeof r==='object').slice(0,60).map(r=>({id:str(r.id||uid(),20), ts:Number(r.ts)||0, name:str(r.name,80), lat:num(r.lat,-90,90,0), lon:num(r.lon,-180,180,0), radius:Math.round(num(r.radius,200,32000,1609)), crit:critClean(r.crit)}));
+  const rv=(raw.review && typeof raw.review==='object') ? raw.review : {}, seen=new Set();
+  d.review.decisions=(Array.isArray(rv.decisions)?rv.decisions:[]).map(cleanDecision).filter(x=>x && !seen.has(x.id) && seen.add(x.id)).slice(0,MAX_DECISIONS);
   d.counters.quote=Math.round(num(raw.counters && raw.counters.quote,0,1e7,0));
   d.properties=(Array.isArray(raw.properties)?raw.properties:(Array.isArray(raw.leads)?raw.leads:[])).map(cleanLead).filter(Boolean);
   const maxRef=d.properties.reduce((m,l)=>l.quotes.reduce((n,q)=>Math.max(n, parseInt(String(q.ref).replace(/\D/g,''),10)||0), m), 0);
   d.counters.quote=Math.max(d.counters.quote, maxRef);
   if(raw.route && typeof raw.route==='object') d.route={day:/^\d{4}-\d{2}-\d{2}$/.test(String(raw.route.day||''))?raw.route.day:'', ids:(Array.isArray(raw.route.ids)?raw.route.ids:[]).map(i=>str(i,40)).slice(0,40)};
   const u=(raw.ui && typeof raw.ui==='object') ? raw.ui : {};
-  d.ui.seeded=u.seeded===true; d.ui.ctlOpen=u.ctlOpen!==false; d.ui.tab=['dash','map','leads','pipe','settings'].includes(u.tab)?u.tab:'dash'; d.ui.mapTab=['search','saved','recent'].includes(u.mapTab)?u.mapTab:'search';
+  d.ui.seeded=u.seeded===true; d.ui.ctlOpen=u.ctlOpen!==false; d.ui.tab=['dash','map','leads','pipe','settings','review'].includes(u.tab)?u.tab:'dash'; d.ui.mapTab=['search','saved','recent'].includes(u.mapTab)?u.mapTab:'search';
   d.ui.pipeView=['list','boards','map'].includes(u.pipeView)?u.pipeView:'list'; d.ui.pipeFilter=['all','high','overdue','quiet'].includes(u.pipeFilter)?u.pipeFilter:'all';
   d.ui.leadSort=['priority','recent','value','name'].includes(u.leadSort)?u.leadSort:'priority'; d.ui.leadStage=(u.leadStage==='all'||STAGES.includes(u.leadStage))?u.leadStage:'all';
   d.ui.closed=(u.closed && typeof u.closed==='object') ? Object.fromEntries(Object.entries(u.closed).filter(([k,v])=>STAGES.includes(k)).map(([k,v])=>[k,!!v])) : {};

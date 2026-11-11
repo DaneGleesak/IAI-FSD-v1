@@ -20,6 +20,7 @@ function viewLeads(m){
   m.innerHTML='<div class="searchbar">'+ic('search')+'<input class="in" id="lSearch" type="search" placeholder="Search name or address" aria-label="Search leads" value="'+esc(LQ)+'" autocomplete="off"></div>'+
     '<div class="chips scroll" id="lStage">'+[['all','All']].concat(STAGES.filter(s=>counts[s]).map(s=>[s,s])).map(([k,l])=>'<button class="chip'+(state.ui.leadStage===k?' on':'')+'" data-v="'+esc(k)+'">'+esc(l)+' <small>'+counts[k]+'</small></button>').join('')+'</div>'+
     '<div class="chips scroll sm" id="lSort"><span class="muted sm">Sort</span>'+[['priority','Priority'],['recent','Recent'],['value','Value'],['name','Name']].map(([k,l])=>'<button class="chip'+(state.ui.leadSort===k?' on':'')+'" data-v="'+k+'">'+l+'</button>').join('')+'</div>'+
+    '<div class="chips tight">'+detailChip()+'</div>'+
     '<div id="lList"></div>';
   const paint=()=>{
     const q=LQ.trim().toLowerCase();

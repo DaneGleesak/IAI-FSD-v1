@@ -45,7 +45,7 @@ let toastT=null;
 function toast(msg, o){
   const t=$('#toast'); if(!t) return; o=o||{};
   t.innerHTML='<span>'+esc(msg)+'</span>'+(o.undo?'<button type="button" id="toastUndo">Undo</button>':'');
-  t.classList.add('show'); clearTimeout(toastT);
+  t.classList.toggle('top',!!o.top); t.classList.add('show'); clearTimeout(toastT);
   const u=$('#toastUndo'); if(u) u.addEventListener('click',()=>{ t.classList.remove('show'); o.undo(); });
   toastT=setTimeout(()=>t.classList.remove('show'), o.ms||(o.undo?6500:3200));
 }
@@ -94,13 +94,21 @@ function nextLine(l){
   const od=t.due && dayDiff(t.due)<0;
   return '<span class="'+(od?'late':'')+'">'+esc(t.text)+(t.due?' · '+esc(dueLabel(t.due)):'')+'</span>';
 }
+/* Last contact, Next action, Est. value: only the ones switched on in "How much to show" */
+function metaRow(l){
+  const S=state.settings.show, v=leadValue(l), lt=lastTouch(l), cells=[];
+  if(S.last) cells.push('<div><small>Last contact</small><b>'+(lt?esc(whenLabel(lt)):'Not yet')+'</b></div>');
+  if(S.next) cells.push('<div><small>Next action</small><b>'+nextLine(l)+'</b></div>');
+  if(S.value) cells.push('<div><small>Est. value</small><b>'+(v!=null?esc(money(v)):'—')+'</b></div>');
+  return cells.length ? '<div class="lc-meta m'+cells.length+'">'+cells.join('')+'</div>' : '';
+}
 function leadCard(l, o){
-  o=o||{}; const cat=CATS[l.cat]||CATS.mixed, v=leadValue(l), lt=lastTouch(l);
+  o=o||{}; const S=state.settings.show, cat=CATS[l.cat]||CATS.mixed, own=venueFact(l,'owner');
   const info=[cat.label, l.bld.levels?plural(l.bld.levels,'floor'):'', l.bld.sqft?fmt(l.bld.sqft)+' sq ft':''].filter(Boolean).join(' · ');
   return '<article class="lcard'+(isOverdue(l)?' od':'')+'" data-act="lead-open" data-id="'+esc(l.id)+'" tabindex="0" role="button" aria-label="Open '+esc(leadName(l))+'">'+
-    '<div class="lc-top"><span class="lc-ico" aria-hidden="true">'+cat.icon+'</span><div class="lc-main"><h3>'+esc(leadName(l))+'</h3><p>'+esc(l.addr||'No address yet')+'</p></div>'+stagePill(l.stage)+'</div>'+
-    '<div class="lc-chips"><span class="chip-s">'+esc(info)+'</span>'+bandPill(leadBand(l))+demoTag(l)+(o.why&&l.why[0]?'<span class="chip-s soft">✨ '+esc(l.why[0])+'</span>':'')+'</div>'+
-    '<div class="lc-meta"><div><small>Last contact</small><b>'+(lt?esc(whenLabel(lt)):'Not yet')+'</b></div><div><small>Next action</small><b>'+nextLine(l)+'</b></div><div><small>Est. value</small><b>'+(v!=null?esc(money(v)):'—')+'</b></div></div>'+
+    '<div class="lc-top"><span class="lc-ico" aria-hidden="true">'+cat.icon+'</span><div class="lc-main"><h3>'+esc(leadName(l))+'</h3>'+(S.addr?'<p>'+esc(l.addr||'No address yet')+'</p>':'')+'</div>'+(S.stage?stagePill(l.stage):'')+'</div>'+
+    '<div class="lc-chips">'+(S.facts?'<span class="chip-s">'+esc(info)+'</span>':'')+(S.band?bandPill(leadBand(l)):'')+demoTag(l)+(S.owner&&own?'<span class="chip-s">Owner: '+esc(own)+'</span>':'')+(o.why&&S.why&&l.why[0]?'<span class="chip-s soft">✨ '+esc(l.why[0])+'</span>':'')+'</div>'+
+    metaRow(l)+
     (o.actions?'<div class="lc-acts">'+
       '<button class="btn-s" data-act="upd-add" data-id="'+esc(l.id)+'">'+ic('plus')+'Add update</button>'+
       '<button class="btn-s" data-act="call-log" data-id="'+esc(l.id)+'">'+ic('phone')+'Log call</button>'+
@@ -121,14 +129,15 @@ ACT['pipe-stage']=el=>{ state.ui.pipeView='list'; state.ui.pipeFilter='all'; sta
 /* ---------- the shell: top bar, tabs, sheet ---------- */
 const TABS=[['dash','Dashboard'],['map','Map'],['leads','Leads'],['pipe','Pipeline'],['settings','Settings']];
 function paintNav(){
-  $('#nav').innerHTML=TABS.map(([k,l])=>'<button type="button" data-act="tab" data-tab="'+k+'" aria-label="'+l+'"'+(state.ui.tab===k?' class="on" aria-current="page"':'')+'>'+ic(k)+'<span>'+l+'</span></button>').join('');
+  const cur=state.ui.tab==='review'?'map':state.ui.tab;
+  $('#nav').innerHTML=TABS.map(([k,l])=>'<button type="button" data-act="tab" data-tab="'+k+'" aria-label="'+l+'"'+(cur===k?' class="on" aria-current="page"':'')+'>'+ic(k)+'<span>'+l+'</span></button>').join('');
 }
 ACT['tab']=el=>show(el.dataset.tab);
 function setTop(title, sub, action){
   $('#topTitle').textContent=title; $('#topSub').textContent=sub||'';
   $('#topAct').innerHTML=action ? '<button class="topbtn" data-act="'+action.act+'">'+(action.icon?ic(action.icon):'')+'<span>'+esc(action.label)+'</span></button>' : '';
 }
-const VIEWS={dash:()=>viewDash, map:()=>viewMap, leads:()=>viewLeads, pipe:()=>viewPipe, settings:()=>viewSettings};
+const VIEWS={dash:()=>viewDash, map:()=>viewMap, leads:()=>viewLeads, pipe:()=>viewPipe, settings:()=>viewSettings, review:()=>viewReview};
 function show(tab, o){
   if(!VIEWS[tab]) tab='dash';
   closeSheet(); closeDlg(); mapDrop();
@@ -145,6 +154,19 @@ function refresh(){
 }
 function back(){ if(!SHEET) return; closeSheet(); const y=window.scrollY; show(state.ui.tab,{keepScroll:true}); window.scrollTo(0,y); }
 ACT['back']=()=>back();
+
+/* ---------- how much to show: one panel, in Settings and from a "Show" button on the busy screens ---------- */
+const DETAIL_LABEL={simple:'Simple', more:'More', all:'Everything', custom:'Custom'};
+function detailPanel(){
+  const S=state.settings.show, cur=detailName(S);
+  return '<div id="detailBox"><div class="seg" role="group" aria-label="How much to show">'+DETAIL_PRESETS.map(([k,l])=>'<button class="'+(cur===k?'on':'')+'" aria-pressed="'+(cur===k)+'" data-act="detail-preset" data-p="'+k+'">'+l+'</button>').join('')+'</div>'+
+    (cur==='custom'?'<p class="muted sm">Your own mix. Tap Simple, More or Everything to start over.</p>':'')+
+    DETAIL_GROUPS.map(([g,gl])=>'<div class="lab">'+esc(gl)+'</div>'+DETAIL.filter(d=>d[1]===g).map(d=>'<label class="switch two"><input type="checkbox" data-act="detail-sw" data-k="'+d[0]+'"'+(S[d[0]]?' checked':'')+'><span><b>'+esc(d[2])+'</b><small>'+esc(d[3])+'</small></span></label>').join('')).join('')+'</div>';
+}
+const detailChip=()=>'<button class="chip sm" data-act="detail-open" aria-label="How much to show: '+DETAIL_LABEL[detailName(state.settings.show)]+'">⚙ Show: '+DETAIL_LABEL[detailName(state.settings.show)]+'</button>';
+ACT['detail-open']=()=>{ openDlg('<h3>How much to show</h3><p class="muted sm">Start simple, then turn on more as the taps become habit. Nothing is deleted when something is hidden.</p>'+detailPanel()+'<div class="actions"><button class="btn" data-act="dlg-close">Done</button></div>',{cls:'tall', onClose:()=>refresh()}); };
+ACT['detail-preset']=el=>{ state.settings.show=detailPreset(el.dataset.p); save(); const b=$('#detailBox'); if(b) b.outerHTML=detailPanel(); };
+ACT['detail-sw']=el=>{ if(DETAIL_KEYS.includes(el.dataset.k)){ state.settings.show[el.dataset.k]=el.checked; save(); const b=$('#detailBox'); if(b){ const y=($('#dlg')||{}).scrollTop; b.outerHTML=detailPanel(); const d=$('#dlg'); if(d && y) d.scrollTop=y; } } };
 
 /* ---------- lookups: described first, the exact request shown, nothing from your leads attached ---------- */
 const HOSTS={tile:'tile.openstreetmap.org', overpass:'overpass-api.de', nominatim:'nominatim.openstreetmap.org', county:'gis.cuyahogacounty.gov'};

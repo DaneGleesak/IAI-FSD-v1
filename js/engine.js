@@ -416,3 +416,30 @@ function parseCounty(json){
       comBldgs:a.com_bldg_count, comArea:a.total_com_use_area, units:a.com_living_units, resArea:a.total_res_liv_area, saleTs:a.transfer_date, saleAmt:a.sales_amount, taxYear:a.tax_year});
   }).filter(Boolean);
 }
+
+/* ---------- how much to show: switches that make the screens simpler or fuller ----------
+   [key, group, label, hint, simple, more, everything]. Simple is where a fresh install starts. */
+const DETAIL=[
+  ['addr','cards','Street address','Under each building name',1,1,1],
+  ['facts','cards','Type, floors and size','Hotel · 6 floors · 52,000 sq ft',1,1,1],
+  ['band','cards','High, Medium or Lower','How worth reaching the map says a building is',1,1,1],
+  ['stage','cards','Stage tag','Where a lead is in your pipeline',1,1,1],
+  ['next','cards','Next action','The next thing to do on a lead',1,1,1],
+  ['last','cards','Last contact','When you last spoke or visited',0,1,1],
+  ['value','cards','Estimated value','Only from a quote, or what you typed',0,1,1],
+  ['why','cards','✨ Why it ranks there','One short reason from the map',0,1,1],
+  ['owner','cards','Owner','When you typed one, or took it from the county record',0,0,1],
+  ['summary','results','Search explanation','The counts, the paragraph and “Rank by” under the map',0,1,1],
+  ['outline','review','Building outline','The shape of the building, from the map',1,1,1],
+  ['askWhy','review','Ask why when I pass','One tap to say why. You can skip it',0,0,1]];
+const DETAIL_KEYS=DETAIL.map(d=>d[0]);
+const DETAIL_GROUPS=[['cards','On building cards'],['results','Map results'],['review','Swipe review']];
+const DETAIL_PRESETS=[['simple','Simple',4],['more','More',5],['all','Everything',6]];
+function detailPreset(name){ const p=DETAIL_PRESETS.find(x=>x[0]===name)||DETAIL_PRESETS[0], o={}; DETAIL.forEach(d=>{ o[d[0]]=d[p[2]]===1; }); return o; }
+/* whatever was saved, made safe: a missing or odd switch falls back to Simple */
+function detailClean(x){ const base=detailPreset('simple'), o={}; x=(x && typeof x==='object' && !Array.isArray(x))?x:{}; DETAIL_KEYS.forEach(k=>{ o[k]=typeof x[k]==='boolean'?x[k]:base[k]; }); return o; }
+function detailName(s){ s=detailClean(s); for(const p of DETAIL_PRESETS){ const q=detailPreset(p[0]); if(DETAIL_KEYS.every(k=>q[k]===s[k])) return p[0]; } return 'custom'; }
+
+/* ---------- swipe review: the three choices, and a building's outline as a small picture ---------- */
+const REVIEW_CHOICES=[['pursue','Pursue'],['investigate','Investigate'],['pass','Pass']];
+const PASS_REASONS=['Too small','Wrong type','Not a fit for drone work','Already a client','Too far','Something else'];

@@ -27,7 +27,7 @@ function topCard(){
   const l=t.l, id=esc(l.id), tel=phoneHref(leadPhone(l)), nav=mapsHref(l), cat=CATS[l.cat]||CATS.mixed, v=leadValue(l);
   return '<section class="card top" aria-label="Top priority lead"><div class="row-between"><span class="eyebrow">Top priority lead</span>'+bandPill(leadBand(l))+'</div>'+
     '<button class="toplead" data-act="lead-open" data-id="'+id+'"><span class="lc-ico" aria-hidden="true">'+cat.icon+'</span><span class="tl-main"><b>'+esc(leadName(l))+demoTag(l)+'</b><small>'+esc(l.addr||'No address yet')+'</small><small class="why-s">'+esc(t.why)+'</small></span>'+stagePill(l.stage)+'</button>'+
-    '<div class="lc-meta"><div><small>Last contact</small><b>'+(lastTouch(l)?esc(whenLabel(lastTouch(l))):'Not yet')+'</b></div><div><small>Next action</small><b>'+nextLine(l)+'</b></div><div><small>Est. value</small><b>'+(v!=null?esc(money(v)):'—')+'</b></div></div>'+
+    metaRow(l)+
     '<div class="fieldbar">'+
       (tel?'<a class="fb" href="'+esc(tel)+'">'+ic('phone')+'<span>Call</span></a>':'<span class="fb off" aria-disabled="true">'+ic('phone')+'<span>No phone</span></span>')+
       (nav?'<a class="fb" href="'+esc(nav)+'" target="_blank" rel="noopener noreferrer">'+ic('nav')+'<span>Navigate</span></a>':'<span class="fb off" aria-disabled="true">'+ic('nav')+'<span>No address</span></span>')+
@@ -68,7 +68,7 @@ function viewDash(m){
     '<p class="greet">'+esc(greet)+'</p>'+
     '<div class="kpis">'+kpi('Active opportunities',open.length, newN+' new · '+(open.length-newN)+' in conversation','kpi-pipe')+kpi('Pending follow-ups',due.length, od?od+' overdue':'none overdue','kpi-follow')+kpi('Proposals',props.length, propVal?money(propVal)+' in play':'none out','kpi-prop')+kpi('Projected revenue',pv?esc(money(pv)):'—','your estimates, not a forecast','kpi-pipe')+'</div>'+
     territoryCard()+
-    '<button class="btn cta wide" data-act="scan">'+ic('map')+' Scan a territory</button>'+
+    '<button class="btn cta wide" data-act="scan">'+ic('map')+' Scan a territory</button>'+(reviewDeck().length?'<button class="btn quiet wide" data-act="review-open">Swipe through '+plural(reviewDeck().length,'new building')+'</button>':'')+
     '<div class="quick">'+[['map','Map search','scan'],['plus','Add lead','lead-new'],['quote','Create quote','dash-quote'],['mail','Send outreach','dash-mail']].map(([i,t,a])=>'<button class="qa" data-act="'+a+'">'+ic(i)+'<span>'+t+'</span></button>').join('')+'</div>'+
     topCard()+routeCard()+followCard()+
     '<section class="card"><div class="row-between"><h3>Pipeline snapshot</h3><button class="linkbtn" data-act="kpi-pipe">Open pipeline</button></div>'+funnelHtml(L)+'</section>';

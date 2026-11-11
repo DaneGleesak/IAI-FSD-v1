@@ -5,6 +5,7 @@ function viewSettings(m){
   const S=state.settings, sn=S.sender, L=S.lookups, withRate=S.services.filter(s=>s.rate!=null).length;
   m.innerHTML=
     (damagedSave?'<section class="card warn"><h3>Your saved data could not be read</h3><p>A copy of it was kept on this phone and nothing was deleted. Export a backup of what you have now, and ask for help restoring the kept copy.</p></section>':'')+
+    '<section class="card"><h3>How much to show</h3><p class="muted sm">Start with Simple while the taps become habit, then turn on more. Hiding something never deletes it.</p>'+detailPanel()+'</section>'+
     '<section class="card"><h3>Lookups</h3><p class="muted sm">The map, address search and building search use OpenStreetMap, outside your phone. They are off until you turn them on, and the exact request is shown before each search.</p>'+
       '<label class="switch"><input type="checkbox" id="swLook"'+(L.on?' checked':'')+'><span>Allow lookups (map pictures, building search, address search)</span></label>'+
       '<label class="switch"><input type="checkbox" id="swAuto"'+(L.autoSend?' checked':'')+'><span>Skip the “show me the request” step</span></label>'+

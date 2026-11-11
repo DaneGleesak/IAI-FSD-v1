@@ -92,22 +92,25 @@ async function runSearch(){
 function paintResults(){
   const box=$('#results'); if(!box) return; const L=state.search.last;
   if(!L){ box.innerHTML='<div class="empty">No search yet. Drop a pin, choose how far and what to look for, then search. The buildings come back here, most worth reaching first.</div>'; return; }
-  const rows=rowsNow(), nb=b=>rows.filter(r=>r.band===b).length;
+  const rows=rowsNow(), nb=b=>rows.filter(r=>r.band===b).length, S=state.settings.show, waiting=reviewDeck().length;
   box.innerHTML='<section class="card"><div class="row-between"><h3>'+plural(rows.length,'Property','Properties')+' found</h3><small class="muted">'+esc(whenLabel(L.ts))+'</small></div>'+
-    '<div class="bandsum"><span class="bpill b-High">'+nb('High')+' High</span><span class="bpill b-Medium">'+nb('Medium')+' Medium</span><span class="bpill b-Lower">'+nb('Lower')+' Lower</span></div>'+
-    '<p class="muted sm">'+esc(L.label)+' · '+esc(radLabel(L.radius))+' · '+plural(L.total,'building')+' on the map, '+L.items.length+' match ('+esc(critText(L.crit))+'). ✨ The order is a suggestion from what the map says. Confirm floors, size and type on site.</p>'+
-    '<div class="lab">Rank by</div><div class="chips scroll" id="lens">'+Object.keys(LENS).map(k=>'<button class="chip'+(state.map.lens===k?' on':'')+'" data-v="'+k+'">'+esc(LENS[k].label)+'</button>').join('')+'</div></section>'+
+    (S.summary
+      ? '<div class="bandsum"><span class="bpill b-High">'+nb('High')+' High</span><span class="bpill b-Medium">'+nb('Medium')+' Medium</span><span class="bpill b-Lower">'+nb('Lower')+' Lower</span></div>'+
+        '<p class="muted sm">'+esc(L.label)+' · '+esc(radLabel(L.radius))+' · '+plural(L.total,'building')+' on the map, '+L.items.length+' match ('+esc(critText(L.crit))+'). ✨ The order is a suggestion from what the map says. Confirm floors, size and type on site.</p>'+
+        '<div class="lab">Rank by</div><div class="chips scroll" id="lens">'+Object.keys(LENS).map(k=>'<button class="chip'+(state.map.lens===k?' on':'')+'" data-v="'+k+'">'+esc(LENS[k].label)+'</button>').join('')+'</div>'
+      : '<p class="muted sm">'+esc(L.label)+' · '+esc(radLabel(L.radius))+'. ✨ Best first, a suggestion from the map. Confirm on site.</p>')+
+    '<div class="btnrow2 rv"><button class="btn" data-act="review-open"'+(waiting?'':' disabled')+'>Swipe through ('+waiting+')</button>'+detailChip()+'</div></section>'+
     (rows.length<8 && !L.crit.unknownLevels ? '<div class="card soft" id="fewHint"><p class="sm">Only buildings with a floor count on the map are shown, and many commercial buildings have none. Tap “Change filters”, turn on “Include buildings with no floor count”, then search again to see them.</p></div>' : '')+
     '<h3 class="sect">Prospects in radius</h3>'+rows.slice(0,MSHOW).map(candCard).join('')+(rows.length>MSHOW?'<button class="btn quiet wide" data-act="more-results">Show more ('+(rows.length-MSHOW)+' left)</button>':'');
   $$('#lens [data-v]',box).forEach(b=>b.addEventListener('click',()=>{ state.map.lens=b.dataset.v; save(); if(MAP){ MAP.rows=rowsNow(); mapDraw(); } paintResults(); }));
 }
 ACT['more-results']=()=>{ MSHOW+=20; paintResults(); };
 function candCard(r){
-  const c=r.c, cat=CATS[c.cat]||CATS.mixed, info=[cat.label, c.levels?plural(c.levels,'floor'):'floors unknown', c.sqft?fmt(c.sqft)+' sq ft':''].filter(Boolean).join(' · ');
+  const c=r.c, S=state.settings.show, cat=CATS[c.cat]||CATS.mixed, info=[cat.label, c.levels?plural(c.levels,'floor'):'floors unknown', c.sqft?fmt(c.sqft)+' sq ft':''].filter(Boolean).join(' · ');
   return '<article class="rcard" data-act="cand-open" data-id="'+esc(c.id)+'" tabindex="0" role="button" aria-label="Research '+esc(c.name||c.addr||'building')+'">'+
-    '<div class="rk b-'+r.band+'">'+r.rank+'</div><div class="rc-main"><h3>'+esc(c.name||c.addr||'Building at '+c.lat.toFixed(4)+', '+c.lon.toFixed(4))+'</h3><p>'+esc(c.addr||'No street address on the map')+'</p>'+
-    '<div class="lc-chips"><span class="chip-s">'+esc(info)+'</span>'+bandPill(r.band)+(r.lead?'<span class="chip-s ok">'+ic('check','tiny')+' In pipeline</span>':'')+'</div>'+
-    '<p class="why1">✨ '+esc(r.why.slice(0,3).join(' · '))+'</p></div>'+
+    '<div class="rk b-'+r.band+'">'+r.rank+'</div><div class="rc-main"><h3>'+esc(c.name||c.addr||'Building at '+c.lat.toFixed(4)+', '+c.lon.toFixed(4))+'</h3>'+(S.addr?'<p>'+esc(c.addr||'No street address on the map')+'</p>':'')+
+    '<div class="lc-chips">'+(S.facts?'<span class="chip-s">'+esc(info)+'</span>':'')+(S.band?bandPill(r.band):'')+(r.lead?'<span class="chip-s ok">'+ic('check','tiny')+' In pipeline</span>':'')+'</div>'+
+    (S.why?'<p class="why1">✨ '+esc(r.why.slice(0,3).join(' · '))+'</p>':'')+'</div>'+
     '<div class="rc-acts"><button class="btn-s" data-act="cand-open" data-id="'+esc(c.id)+'">Research property</button>'+(r.lead?'':'<button class="btn-s prim" data-act="cand-add" data-id="'+esc(c.id)+'">'+ic('plus')+'Add</button>')+'</div></article>';
 }
 function candRow(id){ return rowsNow().find(r=>r.c.id===id)||null; }

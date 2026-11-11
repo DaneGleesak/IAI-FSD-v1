@@ -13,9 +13,10 @@ Tap a place on the map, say how far to look and what kind of building, and the a
 | **Dashboard** | Today's numbers, top-priority lead (Call / Navigate / Note / Photo), today's route, follow-ups due, pipeline snapshot |
 | **Territory Map** | Drop a pin, pick a radius, building type and minimum stories, then search. Results come back ranked **High / Medium / Lower** with the plain reasons. Saved areas and recent searches |
 | **Property Intelligence** | One building in depth: Overview · Contacts · Services · Notes · Files. Edit facts, add contacts, field notes, photos, next actions, change stage, draft a quote, prepare outreach |
+| **Review** | Swipe through the buildings a search found, one card at a time: right = Pursue, left = Pass, middle = Investigate. Only Pursue adds a lead; undo after every choice |
 | **Leads** | Search, filter by stage, sort; add a lead in ten seconds |
 | **Pipeline** | Eight stages (Identified → Won / Lost) as a map, list or board, with totals, win rate and overdue |
-| **Settings** | Your details, services and **your** prices, ready-made solutions, lookups on/off, backup export/import, demo data |
+| **Settings** | **How much to show** (Simple / More / Everything and single switches), your details, services and **your** prices, ready-made solutions, lookups on/off, backup export/import, demo data |
 
 IAI's three core services come first: **window cleaning**, **facade cleaning** and **inspection**. Roof cleaning, soft washing, 3D mapping, solar-panel cleaning and marketing are listed as add-ons.
 
@@ -73,6 +74,7 @@ js/ui.js         dialogs, toasts, navigation, the lookup consent step
 js/work.js       updates, calls, tasks, stages, contacts, quote, email
 js/leads.js      Leads tab + Property Intelligence
 js/territory.js  Territory Map
+js/review.js     Swipe review
 js/dashboard.js  js/pipeline.js  js/settings.js  js/app.js
 tests/           automated checks      docs/   status, data model, review guide
 netlify.toml     static deploy (copies only the app files)

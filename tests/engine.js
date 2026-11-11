@@ -4,7 +4,7 @@ const fs = require('fs'), path = require('path'), vm = require('vm');
 const { suite } = require('./lib');
 const t = suite('engine');
 const ctx = {}; vm.createContext(ctx);
-vm.runInContext(fs.readFileSync(path.resolve(__dirname,'../js/engine.js'),'utf8')+'\nthis.E={countyFor,countyQuery,parseCounty,countyRecClean,COUNTIES,quoteCalc,defaultServices,rankCands,parseOverpass,keepCand,candClean,buildQuery,critClean,ringStats,solutionsFor,defaultPlaybooks,SERVICE_FAMILIES};', ctx);
+vm.runInContext(fs.readFileSync(path.resolve(__dirname,'../js/engine.js'),'utf8')+'\nthis.E={detailPreset,detailClean,detailName,DETAIL,DETAIL_KEYS,DETAIL_PRESETS,countyFor,countyQuery,parseCounty,countyRecClean,COUNTIES,quoteCalc,defaultServices,rankCands,parseOverpass,keepCand,candClean,buildQuery,critClean,ringStats,solutionsFor,defaultPlaybooks,SERVICE_FAMILIES};', ctx);
 const E = ctx.E;
 
 /* defaults: no price is invented anywhere */
@@ -67,4 +67,14 @@ t.ok(/MOCK MGMT CO/.test(recs[0].mailTo) && /MOCKTOWN, OH 44000/.test(recs[0].ma
 t.eq(recs[0].comArea,52400,'commercial area is kept'); t.eq(recs[0].units,null,'zero units is stored as unknown, not 0'); t.eq(recs[0].saleAmt,null,'a zero sale price is not shown as a price');
 t.eq(E.parseCounty({error:{code:400}}),[],'an error answer gives no records');
 t.eq(E.parseCounty(null),[],'no answer gives no records');
+/* how much to show */
+t.eq(new Set(E.DETAIL_KEYS).size, E.DETAIL_KEYS.length, 'every switch has its own name');
+const dS=E.detailPreset('simple'), dM=E.detailPreset('more'), dA=E.detailPreset('all');
+t.ok(E.DETAIL_KEYS.filter(k=>dS[k]).length < E.DETAIL_KEYS.filter(k=>dM[k]).length && E.DETAIL_KEYS.filter(k=>dM[k]).length < E.DETAIL_KEYS.filter(k=>dA[k]).length, 'Simple shows less than More, and More less than Everything');
+t.ok(E.DETAIL_KEYS.every(k=>!dS[k]||dA[k]), 'whatever Simple shows, Everything shows too');
+t.ok(dS.addr && dS.next && dS.band && !dS.why && !dS.value && !dS.summary, 'Simple keeps the name, address, type, band and next action, and hides the rest');
+t.eq(E.detailName(dS),'simple','a Simple mix is named Simple'); t.eq(E.detailName(dM),'more','More'); t.eq(E.detailName(dA),'all','Everything');
+t.eq(E.detailName(Object.assign({},dS,{why:true})),'custom','any other mix is Custom');
+t.eq(E.detailClean(null), dS, 'nothing saved gives Simple'); t.eq(E.detailClean({why:'yes', addr:false, junk:true}), Object.assign({},dS,{addr:false}), 'odd values are ignored, real ones kept, unknown keys dropped');
+t.eq(E.detailClean([1,2]), dS, 'an array is not a setting');
 t.done();

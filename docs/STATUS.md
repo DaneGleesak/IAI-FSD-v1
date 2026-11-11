@@ -1,6 +1,6 @@
 # Implementation status
 
-Version 1.0.0, first vertical slice. Last updated with the county-records pull request.
+Version 1.0.0, first vertical slice. Last updated with the simple-view and swipe-review pull request.
 Legend: ✅ working and covered by a test · 🟡 working, partly simulated or limited · ⬜ not built.
 
 ## The ten requirements
@@ -25,6 +25,8 @@ Legend: ✅ working and covered by a test · 🟡 working, partly simulated or l
 - Ranking and quote maths from building numbers you or the map supply.
 - **Mac mini market scan**: `tools/market-scan.mjs` makes a ranked pack from OpenStreetMap on a Mac mini (same engine as the app); the phone imports it from a file with lookups on or off, and sends nothing (`tests/scan.js`). See `docs/MAC-MINI.md`.
 - Map search is map-first: after Search the filters fold into one line (“Change filters” brings them back) and the ranked results sit right under the map. A 3 mi radius is one tap, a fresh install starts on the hotels / apartments / offices / medical preset, and the Search button stays in reach while the filters are open (`tests/outside.js`).
+- **How much to show**: twelve on/off switches (Simple, More or Everything, or one at a time) for what building cards, map results and Review display. A fresh install and any older save start on **Simple**: name, address, type, band, stage and next action only; “why it ranks”, last contact, value, owner and the long search explanation are switched off until you turn them on. Settings has the panel, and a “Show” button on Leads, the results and Review opens it. Hiding never deletes data; DEMO DATA tags and the one-line “order is a suggestion” note always stay. `tests/detail.js`.
+- **Swipe review**: from the map results, go through the found buildings one card at a time. Right = Pursue (adds a lead), left = Pass, middle button = Investigate (holds it); buttons and arrow keys work too; undo after each; passed and held piles are kept and searchable; every choice is saved with the building and included in backups. Works on the area (pin + radius) search. Plan for county and city search and the rest: [SWIPE-REVIEW-PLAN](SWIPE-REVIEW-PLAN.md). `tests/review.js`.
 - **County records (Cuyahoga)**: in a building's Contacts tab, “Look up county record” asks the county's public parcel records about that one map position (the exact request is shown first; nothing else is sent). It shows the deeded owner, mailing address, land use, building area and living units, labelled as the county's record. The owner fact is filled only when you tap “Use as owner” (estimated, source named); a typed owner is never replaced without asking. `tests/county.js` (mocked county, invented owners).
 - Draft emails and quotes; opening a draft in the phone's mail app; copy to clipboard.
 - Call / Text / Email / Navigate links (plain `tel:`, `sms:`, `mailto:`, Apple Maps), followed only when tapped.
@@ -45,6 +47,7 @@ Legend: ✅ working and covered by a test · 🟡 working, partly simulated or l
   - **Planned (owner): Trellis** will transcribe calls so the app can understand each property better. Step 1 is attaching a transcript to the property's activity timeline (stored on the phone). Step 2 is a "what I heard" list the owner reviews (decision maker, timing, current vendor, objections, next step), each marked ✨ as a suggestion and added to the record only when the owner accepts it. Audio, if ever stored, goes in IndexedDB, never localStorage. A live link is a new outside host and needs the owner's approval first. Call-recording consent rules differ by state, so they should be checked before recording (this is not legal advice).
 - ⬜ Airspace/LAANC integration, weather window planning
 - ⬜ Multi-user accounts, cloud sync, team assignment
+- ⬜ Search by **county** and **city** feeding the same Review deck, obstacle flags, worth-it tiers (need the owner's own numbers) and imagery: [SWIPE-REVIEW-PLAN](SWIPE-REVIEW-PLAN.md)
 - ⬜ Planned (owner): Mac mini lanes: sharing between reps, local AI for outreach, call transcription (`docs/MAC-MINI.md`); My Field Day home and quote-from-the-request (`docs/ROADMAP.md`)
 - ⬜ Customer-facing quote PDF, e-signature, invoicing
 - ⬜ Push notifications and calendar integration

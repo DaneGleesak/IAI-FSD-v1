@@ -10,6 +10,9 @@ Direction from the owner (design mockups as the visual reference, tailored to IA
 ## Added since
 - ✅ **County parcel records (Cuyahoga)**: tap-to-look-up owner, units, land use and building area for one building. Other counties come later, one at a time, each with the owner's approval of its host.
 
+- ✅ **How much to show**: Simple / More / Everything switches, so screens start uncrowded and fill up as the taps become habit.
+- ✅ **Swipe review** on the area search (slice 1). County and city search, obstacles and tiers are planned in `docs/SWIPE-REVIEW-PLAN.md`.
+
 ## Mockup ideas that fit as they are
 Ranked list with Fit and Confidence; verified / unknown / estimated badges; Overview · Contacts · Services · Notes · Files tabs; IAI service fit with upsells (window, facade, pressure wash, roof, thermal, mapping, solar); operational checks (facade and glass, balconies, water, launch area, airspace "needs check"); eleven-stage pipeline.
 

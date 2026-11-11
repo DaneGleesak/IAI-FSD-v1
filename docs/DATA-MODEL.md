@@ -45,10 +45,12 @@ How the pieces connect:
 ## Other state
 
 ```
-settings   {lookups:{on, autoSend}, sender:{name, company, phone, email, address, blurb, optOut}, floorFt,
+settings   {lookups:{on, autoSend}, show{addr, facts, band, stage, next, last, value, why, owner, summary, outline, askWhy: true|false},
+            sender:{name, company, phone, email, address, blurb, optOut}, floorFt,
             services[{id, name, unit, rate, min, on, core, pitch…}], playbooks[]}
 map        {view, pin, radius, crit, lens, offer[]}        what the Territory Map is showing
 search     {last, runs[≤30], saved[≤60]}                   the last result list (candidates, not leads), recent and saved areas
+review     {decisions[≤2500: {id, d:'pursue'|'investigate'|'pass', ts, reason, leadId, cand}]}   one choice per building, newest first; `cand` is the building as it was; `leadId` is set only when the swipe made the lead
 counters   {quote}                                         Q-0001… never reused
 route      {day, ids[]}                                    today's route, reset each day
 ui         {tab, seeded, mapTab, pipeView, pipeFilter, leadSort, leadStage, showN, closed{}}
