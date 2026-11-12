@@ -388,6 +388,43 @@ function quoteCalc(b, services, sel, floorFt){
   return {lines, core, extra, coreTotal:sum(core), extraTotal:sum(extra), total:sum(lines), missing:lines.filter(l=>l.amount==null).length, priced:lines.filter(l=>l.amount!=null).length,
     coreAllPriced: core.length>0 && core.every(l=>l.amount!=null), allPriced: lines.length>0 && lines.every(l=>l.amount!=null)};
 }
+/* ---------- a quote from the customer's request: ✨ suggestions read from their own words, nothing applied until ticked ----------
+   Runs on the phone with plain rules. Nothing is sent anywhere, nothing is guessed: every suggestion carries the words it came from. */
+const REQ_WORDS=[
+  ['s-ext1', /\b(windows?|glass|glazing|curtain ?wall)\b/i],
+  ['s-upper', /\b(windows?|glass|glazing|curtain ?wall|high[- ]rise|tall|upper floors?)\b/i],
+  ['s-int1', /\b(interior|inside)\b[^.]{0,40}\b(windows?|glass)\b|\b(windows?|glass)\b[^.]{0,40}\b(interior|inside)\b/i],
+  ['s-facade', /\b(fa[cç]ade|mold|mould|algae|grime|stains?|staining|brick|stucco|siding|exterior walls?|building wash)\b/i],
+  ['s-insp', /\b(inspect\w*|thermal|infrared|leaks?|moisture|heat loss|envelope)\b/i],
+  ['s-roof', /\broof\w*\b/i],
+  ['s-wash', /\b(pressure[- ]?wash\w*|power[- ]?wash\w*|soft[- ]?wash\w*|sidewalks?|walkways?|parking (?:lot|garage|deck)|entrances?|storefronts?|masonry|dumpster pad)\b/i],
+  ['s-map', /\b(3d|mapping|site model|documentation|progress photos?|survey|measurements?)\b/i],
+  ['s-solar', /\bsolar\b|\bpanels?\b/i],
+  ['s-mkt', /\b(marketing|promo\w*|aerial (?:photos?|video)|drone (?:photos?|video)|leasing photos?)\b/i],
+  ['s-plan', /\b(maintenance (?:plan|program|contract)|recurring|contract|monthly|quarterly|annual\w*|yearly|twice a year|semi-?annual\w*|every (?:\d+ )?(?:weeks?|months?|quarters?|years?)|each (?:month|quarter|year))\b/i]
+];
+const REQ_FREQ=[['weekly',/\bweekly\b|\bevery week\b/i],['monthly',/\bmonthly\b|\bevery month\b|\beach month\b/i],['quarterly',/\bquarterly\b|\bevery quarter\b|\bevery 3 months\b|\beach quarter\b/i],
+  ['twice a year',/\btwice a year\b|\bsemi-?annual\w*\b|\bevery 6 months\b|\bevery six months\b/i],['once a year',/\bannual(?:ly)?\b|\byearly\b|\bonce a year\b|\bevery year\b|\beach year\b/i],['one time',/\bone[- ]time\b|\bonce\b|\bjust once\b/i]];
+const REQ_MONTHS='jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?';
+function readRequest(text, services){
+  text=String(text||'').replace(/\s+/g,' ').trim().slice(0,2000); const out={services:[], stories:null, storiesWhy:'', freq:'', freqWhy:'', dates:[]};
+  if(!text) return out;
+  const W={single:1,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12}, m=text.match(/\b(\d{1,2}|single|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)[\s-]*(?:stor(?:y|ies)|floors?|levels?)\b/i);
+  if(m){ const n=/^\d/.test(m[1]) ? parseInt(m[1],10) : W[m[1].toLowerCase()]; if(n>=1 && n<=99){ out.stories=n; out.storiesWhy=m[0]; } }
+  const ids=new Set((services||[]).map(s=>s.id)), nameOf=id=>((services||[]).find(s=>s.id===id)||{}).name||id, hit={};
+  REQ_WORDS.forEach(([id,re])=>{ const x=text.match(re); if(x && ids.has(id)) hit[id]=x[0]; });
+  /* "windows" asks for the exterior lines; the upper-floor line only when the building has floors above the first (or the floors are not known) */
+  if(hit['s-upper'] && out.stories!=null && out.stories<2 && !/\b(high[- ]rise|tall|upper floors?)\b/i.test(text)) delete hit['s-upper'];
+  if(hit['s-int1'] && hit['s-ext1'] && !/\b(exterior|outside|outer)\b/i.test(text)) delete hit['s-ext1'];
+  if(hit['s-solar'] && !/\bsolar\b/i.test(text)) delete hit['s-solar'];
+  Object.keys(hit).forEach(id=>out.services.push({id, name:nameOf(id), why:hit[id]}));
+  for(const [f,re] of REQ_FREQ){ const x=text.match(re); if(x){ out.freq=f; out.freqWhy=x[0]; break; } }
+  const seen=new Set(), add=s=>{ const k=s.toLowerCase(); if(!seen.has(k) && out.dates.length<6){ seen.add(k); out.dates.push(s); } };
+  (text.match(new RegExp('\\b(?:'+REQ_MONTHS+')\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?(?:,?\\s*\\d{4})?','gi'))||[]).forEach(add);
+  (text.match(/\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/g)||[]).forEach(add);
+  (text.match(/\b(?:before|by|after|until|during|in)\s+(?:the\s+)?(?:spring|summer|fall|autumn|winter|grand opening|holidays?|event|conference|season)\b/gi)||[]).forEach(add);
+  return out;
+}
 function lineText(l){
   if(l.amount==null) return '• '+l.name+(l.band?' ('+l.band+')':'')+': '+(l.need==='rate' ? 'rate needed' : l.need ? l.need+' needed' : 'to be priced');
   return '• '+l.name+(l.band?' ('+l.band+')':'')+': '+(l.unit==='flat' ? money(l.amount) : l.qlabel+' @ '+money(l.rate)+' = '+money(l.amount));

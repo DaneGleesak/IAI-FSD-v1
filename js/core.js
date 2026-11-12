@@ -94,7 +94,7 @@ function cleanLead(x){
     tasks:(Array.isArray(x.tasks)?x.tasks:[]).filter(t=>t && typeof t==='object').map(t=>({id:str(t.id||uid(),40), text:str(t.text,300), due:/^\d{4}-\d{2}-\d{2}$/.test(String(t.due||''))?t.due:'', done:t.done===true, ts:Number(t.ts)||0, doneTs:Number(t.doneTs)||0})),
     notes:(Array.isArray(x.notes)?x.notes:[]).filter(n=>n && typeof n==='object').map(n=>({id:str(n.id||uid(),40), text:str(n.text,6000), ts:Number(n.ts)||0})),
     quotes:(Array.isArray(x.quotes)?x.quotes:[]).filter(q=>q && typeof q==='object').slice(0,60).map(q=>({id:str(q.id||uid(),40), ref:str(q.ref,20), ts:Number(q.ts)||0,
-      total:q.total==null?null:num(q.total,0,1e9,null), coreTotal:q.coreTotal==null?null:num(q.coreTotal,0,1e9,null), coreAllPriced:q.coreAllPriced===true, scope:str(q.scope,300), note:str(q.note,300),
+      total:q.total==null?null:num(q.total,0,1e9,null), coreTotal:q.coreTotal==null?null:num(q.coreTotal,0,1e9,null), coreAllPriced:q.coreAllPriced===true, scope:str(q.scope,300), note:str(q.note,300), request:str(q.request,2000),
       stories:q.stories==null?null:Math.round(num(q.stories,1,200,1)), perimFt:q.perimFt==null?null:num(q.perimFt,0,1e6,0), text:str(q.text,6000),
       status:q.status==='approved'?'approved':'draft', approvedTs:q.status==='approved'?(Number(q.approvedTs)||0):0, approvedBy:q.status==='approved'?str(q.approvedBy,80):'',
       lines:(Array.isArray(q.lines)?q.lines:[]).slice(0,40).map(z=>({id:str(z&&z.id,40), name:str(z&&z.name,160), amount:(z&&z.amount!=null)?num(z.amount,0,1e9,null):null, need:str(z&&z.need,20), core:!!(z&&z.core)}))})),

@@ -4,7 +4,7 @@ const fs = require('fs'), path = require('path'), vm = require('vm');
 const { suite } = require('./lib');
 const t = suite('engine');
 const ctx = {}; vm.createContext(ctx);
-vm.runInContext(fs.readFileSync(path.resolve(__dirname,'../js/engine.js'),'utf8')+'\nthis.E={buildQueries,joinQueries,splitQueries,detailPreset,detailClean,detailName,DETAIL,DETAIL_KEYS,DETAIL_PRESETS,countyFor,countyQuery,parseCounty,countyRecClean,COUNTIES,quoteCalc,defaultServices,rankCands,parseOverpass,keepCand,candClean,buildQuery,critClean,ringStats,solutionsFor,defaultPlaybooks,SERVICE_FAMILIES};', ctx);
+vm.runInContext(fs.readFileSync(path.resolve(__dirname,'../js/engine.js'),'utf8')+'\nthis.E={readRequest,buildQueries,joinQueries,splitQueries,detailPreset,detailClean,detailName,DETAIL,DETAIL_KEYS,DETAIL_PRESETS,countyFor,countyQuery,parseCounty,countyRecClean,COUNTIES,quoteCalc,defaultServices,rankCands,parseOverpass,keepCand,candClean,buildQuery,critClean,ringStats,solutionsFor,defaultPlaybooks,SERVICE_FAMILIES};', ctx);
 const E = ctx.E;
 
 /* defaults: no price is invented anywhere */
@@ -94,4 +94,22 @@ const hr = E.buildQueries(41.4,-81.4,1609,E.critClean({preset:'highrise'}));
 t.eq(hr.length, 2, 'the high-rise preset is also two requests'); t.ok(/building:levels/.test(hr[0].q), 'and asks for floors');
 t.ok(['hotel','apartments','hospital'].every(v=>new RegExp('\\["building"="'+v+'"\\]').test(bq[0].q)), 'every chosen kind is in the one buildings request');
 t.eq((bq[0].q.match(/\["building"="hotel"\]/g)||[]).length, 2, 'and each value is asked for once, as a way and as a relation');
+
+/* a quote from the customer's request: suggestions only, each with the words it came from */
+{
+  const sv = E.defaultServices(), R = x=>E.readRequest(x, sv), ids = r=>r.services.map(s=>s.id);
+  const a = R('We need the windows on our 6-story office cleaned quarterly, before our open house on May 3rd and again by 9/15/2027.');
+  t.ok(ids(a).includes('s-ext1') && ids(a).includes('s-upper'), 'windows on a six-story building suggest the exterior lines');
+  t.eq(a.stories, 6, 'the floors are read from their words'); t.eq(a.storiesWhy, '6-story', 'and the words are kept');
+  t.eq(a.freq, 'quarterly', 'quarterly is read'); t.ok(ids(a).includes('s-plan'), 'a repeat frequency suggests the maintenance plan');
+  t.eq(a.dates, ['May 3rd','9/15/2027'], 'the dates are copied as written'); t.ok(a.services.every(s=>s.why), 'every suggestion carries the words it came from');
+  const b = R('One-story clinic, just the windows please. Once.');
+  t.ok(ids(b).includes('s-ext1') && !ids(b).includes('s-upper'), 'a one-story building does not get the upper-floors line'); t.eq(b.freq, 'one time', 'one time is read');
+  const c = R('Mold and algae on the brick facade and the roof looks bad. Inspect for leaks too.');
+  t.ok(['s-facade','s-roof','s-insp'].every(i=>ids(c).includes(i)), 'facade, roof and inspection words each suggest their service'); t.eq(c.stories, null, 'no floors invented'); t.eq(c.freq, '', 'no frequency invented'); t.eq(c.dates, [], 'no dates invented');
+  const d = R('Interior glass in the lobby only.'); t.ok(ids(d).includes('s-int1') && !ids(d).includes('s-ext1'), 'interior glass suggests the interior line, not the exterior one');
+  t.eq(R('hello there').services, [], 'text with nothing recognisable suggests nothing'); t.eq(R('').stories, null, 'empty text is fine');
+  t.eq(E.readRequest('windows', [{id:'s-custom', name:'Custom'}]).services, [], 'a service the owner removed is never suggested');
+  t.eq(R('x'.repeat(5000)).services, [], 'a very long paste is cut down safely');
+}
 t.done();

@@ -211,7 +211,7 @@ function prepLine(l){
 ACT['quote-open']=el=>{ const l=leadOr(el.dataset.id); if(l) quoteDlg(l); };
 function quoteDlg(l){
   const S=state.settings, on=new Set(l.services.length ? l.services : S.services.filter(s=>s.on).map(s=>s.id));
-  Q={l, stories:l.bld.levels, perim:l.bld.perimFt, sel:new Set([...on].filter(id=>S.services.some(s=>s.id===id))), note:''};
+  Q={l, stories:l.bld.levels, perim:l.bld.perimFt, sel:new Set([...on].filter(id=>S.services.some(s=>s.id===id))), note:'', req:'', read:null, tick:new Set(), reqOpen:false};
   quotePaint();
 }
 function quoteText(l, calc, note, ref, approved){
@@ -230,6 +230,29 @@ function quoteText(l, calc, note, ref, approved){
   if(note) L.push('• '+note);
   return L.join('\n');
 }
+/* the ✨ suggestions read from the customer's request: each one names the words it came from, and nothing is used until it is ticked */
+function reqProposals(){
+  const r=Q.read, P=[]; if(!r) return P;
+  r.services.forEach(x=>P.push({k:'svc:'+x.id, text:'Include <b>'+esc(x.name)+'</b>', why:'they said “'+x.why+'”', done:false}));
+  if(r.stories!=null) P.push({k:'floors', text:'Floors: <b>'+r.stories+'</b>', why:'they said “'+r.storiesWhy+'”'+(Q.stories && Q.stories!==r.stories ? ' · your numbers say '+Q.stories : ''), done:Q.stories===r.stories});
+  if(r.freq) P.push({k:'freq', text:'Add a note: they want it <b>'+esc(r.freq)+'</b>', why:'they said “'+r.freqWhy+'”', done:Q.note.includes('Requested: '+r.freq)});
+  if(r.dates.length) P.push({k:'dates', text:'Add a note with the timing they gave: <b>'+esc(r.dates.join(', '))+'</b>', why:'their dates, as written', done:Q.note.includes('Timing mentioned:')});
+  return P;
+}
+function reqBox(){
+  const P=reqProposals(), rows=P.map(p=>'<label class="qline"><input type="checkbox" data-rq="'+esc(p.k)+'"'+(p.done?' checked disabled':Q.tick.has(p.k)?' checked':'')+'> <span class="ql-t">'+p.text+'<small>'+esc(p.why)+(p.done?' · already in the quote':'')+'</small></span></label>').join('');
+  return '<details class="reqbox" id="reqBox"'+(Q.reqOpen||Q.req?' open':'')+'><summary>✨ Start from what they asked for</summary>'+
+    '<p class="muted sm">Paste or type the customer’s request. Suggestions come from their own words, on this phone. Nothing changes until you tick it and tap Use. Ticked services become the scope; you can still change every line.</p>'+
+    '<textarea class="ta" id="qReq" rows="4" maxlength="2000" placeholder="For example: we need the windows on our 6-story office cleaned quarterly, before our open house on May 3" aria-label="What the customer asked for">'+esc(Q.req)+'</textarea>'+
+    '<div class="chips"><button type="button" class="chip" id="qRead">Read it</button></div>'+
+    (Q.read ? (P.length ? '<div class="lab">Suggestions</div>'+rows+'<div class="chips"><button type="button" class="btn" id="qUse">Use ticked</button></div>' : '<p class="muted sm">Nothing recognised in that. Pick the services yourself below.</p>') : '')+'</details>';
+}
+function reqUse(){
+  const P=reqProposals().filter(p=>!p.done && Q.tick.has(p.k)), r=Q.read, add=s=>{ if(!Q.note.includes(s)) Q.note=(Q.note?Q.note+' ':'')+s; };
+  const svc=P.filter(p=>p.k.startsWith('svc:')).map(p=>p.k.slice(4)); if(svc.length) Q.sel=new Set(svc);   /* the ticked services become the scope */
+  P.forEach(p=>{ if(p.k.startsWith('svc:')) return; if(p.k==='floors') Q.stories=r.stories; else if(p.k==='freq') add('Requested: '+r.freq+' service.'); else if(p.k==='dates') add('Timing mentioned: '+r.dates.join(', ')+'.'); });
+  Q.note=Q.note.slice(0,300); Q.tick=new Set(); return P.length;
+}
 function quotePaint(){
   const l=Q.l, S=state.settings, bi={stories:Q.stories, perimFt:Q.perim};
   const every=quoteCalc(bi, S.services, new Set(S.services.map(s=>s.id)), S.floorFt), calc=quoteCalc(bi, S.services, Q.sel, S.floorFt);
@@ -241,7 +264,7 @@ function quotePaint(){
   const core=every.lines.filter(x=>x.core), extra=every.lines.filter(x=>!x.core);
   const d=openDlg('<h3>Draft quote · '+esc(leadName(l))+'</h3><div class="draftbar">DRAFT — REVIEW REQUIRED</div>'+
     '<p class="muted sm">✨ Built from public map data. Each line is separate, so you can drop or reprice any of them. Nothing is guessed: a line with no rate says so.</p>'+
-    '<div class="line">Prepared for: '+(prep?esc(prep):'<span class="muted">not known yet</span>')+'</div>'+
+    '<div class="line">Prepared for: '+(prep?esc(prep):'<span class="muted">not known yet</span>')+'</div>'+reqBox()+
     '<div class="two"><div><label class="lab" for="qSt">Floors</label><input class="in" id="qSt" inputmode="numeric" maxlength="3" value="'+(Q.stories||'')+'" placeholder="unknown"></div><div><label class="lab" for="qPe">Building edge, ft</label><input class="in" id="qPe" inputmode="numeric" maxlength="6" value="'+(Q.perim?Math.round(Q.perim):'')+'" placeholder="unknown"></div></div>'+
     (Q.stories?'':'<p class="muted sm">Floors are not on the map. Enter them to price the upper floors.</p>')+
     '<div class="lab">Scope</div>'+(core.map(row).join('')||'<div class="muted sm">No main services are switched on. Add them in Settings.</div>')+
@@ -252,7 +275,11 @@ function quotePaint(){
     (last?'<p class="muted sm">Last saved: '+esc(last.ref||'quote')+' · '+esc(last.coreAllPriced&&last.coreTotal!=null?money(last.coreTotal):'unpriced')+' · '+(last.status==='approved'?'approved':'draft, not approved')+'</p>':'')+
     '<p class="muted sm">A quote only goes to a customer after you read it and approve it.</p><div class="chips"><button class="btn" id="qSave">Save draft</button><button class="chip" id="qCopy">📋 Copy draft</button><button class="chip" id="qMail">✓ Approve & email</button></div>'+
     '<div class="actions"><button class="btn quiet" data-act="dlg-close">Close</button></div>', {cls:'tall'});
-  const read=()=>{ const s=parseInt($('#qSt',d).value,10), p=parseFloat($('#qPe',d).value); Q.stories=s>0?s:null; Q.perim=p>0?p:null; Q.note=$('#qNote',d).value.trim(); };
+  const read=()=>{ const s=parseInt($('#qSt',d).value,10), p=parseFloat($('#qPe',d).value); Q.stories=s>0?s:null; Q.perim=p>0?p:null; Q.note=$('#qNote',d).value.trim(); Q.req=$('#qReq',d).value; };
+  $('#reqBox',d).addEventListener('toggle',e=>{ Q.reqOpen=e.target.open; });
+  $('#qRead',d).addEventListener('click',()=>{ read(); Q.read=readRequest(Q.req, S.services); Q.tick=new Set(); Q.reqOpen=true; quotePaint(); });
+  $$('[data-rq]',d).forEach(cb=>cb.addEventListener('change',()=>{ cb.checked ? Q.tick.add(cb.dataset.rq) : Q.tick.delete(cb.dataset.rq); }));
+  const use=$('#qUse',d); if(use) use.addEventListener('click',()=>{ read(); const n=reqUse(); if(!n){ toast('Tick what is right first'); return; } toast('✓ Added '+plural(n,'suggestion')+'. Check the lines below.'); quotePaint(); });
   ['#qSt','#qPe'].forEach(sel=>$(sel,d).addEventListener('change',()=>{ read(); quotePaint(); }));
   $('#qNote',d).addEventListener('change',read);
   $$('[data-id]',d).forEach(cb=>cb.addEventListener('change',()=>{ read(); cb.checked ? Q.sel.add(cb.dataset.id) : Q.sel.delete(cb.dataset.id); quotePaint(); }));
@@ -269,7 +296,7 @@ function quoteSave(){
   if(Q.stories && Q.stories!==l.bld.levels){ l.bld.levels=Q.stories; l.bld.checked=true; }
   if(Q.perim && Math.round(Q.perim)!==l.bld.perimFt){ l.bld.perimFt=Math.round(Q.perim); l.bld.checked=true; }
   const q={id:uid(), ref, ts:Date.now(), total:calc.total||null, coreTotal:calc.core.length?calc.coreTotal:null, coreAllPriced:calc.coreAllPriced,
-    status:'draft', approvedTs:0, approvedBy:'', scope:calc.core.map(x=>x.band||x.name).filter((v,i,a)=>a.indexOf(v)===i).join(', '), note:Q.note, stories:Q.stories, perimFt:Q.perim, text:quoteText(l,calc,Q.note,ref),
+    status:'draft', approvedTs:0, approvedBy:'', request:str(Q.req,2000), scope:calc.core.map(x=>x.band||x.name).filter((v,i,a)=>a.indexOf(v)===i).join(', '), note:Q.note, stories:Q.stories, perimFt:Q.perim, text:quoteText(l,calc,Q.note,ref),
     lines:calc.lines.map(x=>({id:x.id, name:x.name, amount:x.amount, need:x.need||'', core:x.core}))};
   l.quotes.unshift(q); l.services=[...Q.sel];
   logEvent(l,{type:'quote', ref, text:calc.coreAllPriced ? money(calc.coreTotal) : 'draft, not fully priced'});
@@ -281,7 +308,7 @@ ACT['quote-approve']=el=>{ const l=leadOr(el.dataset.id); const q=l&&l.quotes.fi
 function quoteApproveDlg(l, q, then){
   if(q.status==='approved'){ if(then) then(q); return; }
   if(l.demo){ toast('This is a demonstration property, so its quote can’t be approved for a customer. Add a real lead to do that.'); return; }
-  const d=openDlg('<h3>Approve '+esc(q.ref)+' for the customer?</h3><div class="draftbar">DRAFT — REVIEW REQUIRED</div><p class="muted sm">Read it through. Approving does not send anything: it only lets this quote be included in an email you open and send yourself.</p>'+
+  const d=openDlg('<h3>Approve '+esc(q.ref)+' for the customer?</h3><div class="draftbar">DRAFT — REVIEW REQUIRED</div><p class="muted sm">Read it through. Approving does not send anything: it only lets this quote be included in an email you open and send yourself.</p>'+(q.request?'<div class="line"><b>Their request:</b> '+esc(q.request)+'</div>':'')+
     '<textarea class="ta mono" rows="14" readonly aria-label="Quote text">'+esc(q.text)+'</textarea>'+
     '<label class="check"><input type="checkbox" id="apCk"> I have read this quote and approve it for the customer</label>'+
     '<div class="actions"><button class="btn quiet" data-act="dlg-close">Not yet</button><button class="btn" id="apOk" disabled>Approve</button></div>', {cls:'tall'});

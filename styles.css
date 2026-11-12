@@ -275,3 +275,7 @@ details{margin:8px 0}summary{min-height:44px;display:flex;align-items:center;fon
 .routemi{margin-top:8px}
 .moretip{text-align:center;margin:6px 0 14px}
 .brand{width:auto;height:auto;border:0;background:none;border-radius:0;display:block}
+
+/* quote from the customer's request */
+.reqbox{border:1px dashed var(--sky-300);border-radius:12px;padding:4px 10px 8px;margin:8px 0}
+.reqbox summary{min-height:40px;display:flex;align-items:center;font-weight:700;color:var(--royal);cursor:pointer}
