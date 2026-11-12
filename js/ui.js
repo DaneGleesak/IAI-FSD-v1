@@ -179,6 +179,15 @@ async function fetchJSON(url, opt){
     return await r.json();
   } finally { clearTimeout(t); }
 }
+/* for the connection check only: hands back the status instead of throwing, so a refusal can be shown with its code */
+async function fetchProbe(url, opt){
+  const ctl=window.AbortController ? new AbortController() : null, timer=setTimeout(()=>ctl && ctl.abort(), 20000);
+  try{
+    const r=await fetch(url, Object.assign({credentials:'omit', cache:'no-store', signal:ctl?ctl.signal:undefined}, opt||{}));
+    let text=''; if(!r.ok){ try{ text=(await r.text()).replace(/\s+/g,' ').slice(0,80); }catch(_){} }
+    return {ok:r.ok, status:r.status, text};
+  } finally { clearTimeout(timer); }
+}
 function netMsg(e){
   const m=String(e && e.message || e), code=(m.match(/HTTP (\d{3})/)||[])[1];
   if(code==='429') return 'The service says too many requests (HTTP 429). Wait a minute, then try again.';

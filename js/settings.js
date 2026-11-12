@@ -73,16 +73,15 @@ const NET_TESTS=[
   {name:'County records', host:HOSTS.county, line:'GET https://gis.cuyahogacounty.gov/server/rest/services/Open_Data_Parcels/MapServer/1?f=json', url:'https://gis.cuyahogacounty.gov/server/rest/services/Open_Data_Parcels/MapServer/1?f=json', opt:{}}
 ];
 async function netTestOne(T){
-  const t0=performance.now(), ctl=window.AbortController?new AbortController():null, timer=setTimeout(()=>ctl&&ctl.abort(),20000);
+  const t0=performance.now();
   const ms=()=>{ const d=performance.now()-t0; return d<1000?Math.round(d)+' ms':(d/1000).toFixed(1)+' s'; };
   try{
-    const r=await fetch(T.url,Object.assign({credentials:'omit', cache:'no-store', signal:ctl?ctl.signal:undefined}, T.opt));
-    let extra=''; if(!r.ok){ try{ extra=' · '+(await r.text()).replace(/\s+/g,' ').slice(0,80); }catch(_){} }
-    return {ok:r.ok, text:T.name+' · HTTP '+r.status+' · '+ms()+extra};
+    const r=await fetchProbe(T.url, T.opt);
+    return {ok:r.ok, text:T.name+' · HTTP '+r.status+' · '+ms()+(r.text?' · '+r.text:'')};
   }catch(e){
     const m=String(e&&e.message||e), why=/abort/i.test(m)?'no answer in 20 seconds':/Failed to fetch|NetworkError|Load failed/i.test(m)?'the phone could not get through (no signal, or the service does not allow this app)':m.slice(0,60);
     return {ok:false, text:T.name+' · failed after '+ms()+' · '+why};
-  }finally{ clearTimeout(timer); }
+  }
 }
 ACT['net-check']=()=>{
   confirmSend({title:'Check the connection?', intro:'One tiny test goes to each service below. None carries a lead, contact, price or note, and none names a building.', hosts:NET_TESTS.map(x=>x.host),
