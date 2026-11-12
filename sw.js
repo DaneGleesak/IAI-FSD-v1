@@ -1,12 +1,12 @@
 // IAI Field Sales Dashboard: service worker.
 // Caches the app files so the app opens fast and works offline. It never touches saved data
 // (that stays in this browser) and it ignores every request that goes to another website.
-const CACHE = 'iai-fsd-v1-r4';
+const CACHE = 'iai-fsd-v1-r11';
 const ASSETS = [
   './', 'index.html', 'styles.css', 'manifest.json',
   'js/engine.js', 'js/core.js', 'js/map.js', 'js/ui.js', 'js/work.js', 'js/leads.js',
-  'js/territory.js', 'js/dashboard.js', 'js/pipeline.js', 'js/settings.js', 'js/app.js',
-  'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'
+  'js/territory.js', 'js/review.js', 'js/dashboard.js', 'js/pipeline.js', 'js/settings.js', 'js/app.js',
+  'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'icons/logo.png'
 ];
 
 self.addEventListener('install', e => {

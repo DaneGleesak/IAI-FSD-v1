@@ -45,7 +45,7 @@ let toastT=null;
 function toast(msg, o){
   const t=$('#toast'); if(!t) return; o=o||{};
   t.innerHTML='<span>'+esc(msg)+'</span>'+(o.undo?'<button type="button" id="toastUndo">Undo</button>':'');
-  t.classList.add('show'); clearTimeout(toastT);
+  t.classList.toggle('top',!!o.top); t.classList.add('show'); clearTimeout(toastT);
   const u=$('#toastUndo'); if(u) u.addEventListener('click',()=>{ t.classList.remove('show'); o.undo(); });
   toastT=setTimeout(()=>t.classList.remove('show'), o.ms||(o.undo?6500:3200));
 }
@@ -94,13 +94,21 @@ function nextLine(l){
   const od=t.due && dayDiff(t.due)<0;
   return '<span class="'+(od?'late':'')+'">'+esc(t.text)+(t.due?' · '+esc(dueLabel(t.due)):'')+'</span>';
 }
+/* Last contact, Next action, Est. value: only the ones switched on in "How much to show" */
+function metaRow(l){
+  const S=state.settings.show, v=leadValue(l), lt=lastTouch(l), cells=[];
+  if(S.last) cells.push('<div><small>Last contact</small><b>'+(lt?esc(whenLabel(lt)):'Not yet')+'</b></div>');
+  if(S.next) cells.push('<div><small>Next action</small><b>'+nextLine(l)+'</b></div>');
+  if(S.value) cells.push('<div><small>Est. value</small><b>'+(v!=null?esc(money(v)):'—')+'</b></div>');
+  return cells.length ? '<div class="lc-meta m'+cells.length+'">'+cells.join('')+'</div>' : '';
+}
 function leadCard(l, o){
-  o=o||{}; const cat=CATS[l.cat]||CATS.mixed, v=leadValue(l), lt=lastTouch(l);
+  o=o||{}; const S=state.settings.show, cat=CATS[l.cat]||CATS.mixed, own=venueFact(l,'owner');
   const info=[cat.label, l.bld.levels?plural(l.bld.levels,'floor'):'', l.bld.sqft?fmt(l.bld.sqft)+' sq ft':''].filter(Boolean).join(' · ');
   return '<article class="lcard'+(isOverdue(l)?' od':'')+'" data-act="lead-open" data-id="'+esc(l.id)+'" tabindex="0" role="button" aria-label="Open '+esc(leadName(l))+'">'+
-    '<div class="lc-top"><span class="lc-ico" aria-hidden="true">'+cat.icon+'</span><div class="lc-main"><h3>'+esc(leadName(l))+'</h3><p>'+esc(l.addr||'No address yet')+'</p></div>'+stagePill(l.stage)+'</div>'+
-    '<div class="lc-chips"><span class="chip-s">'+esc(info)+'</span>'+bandPill(leadBand(l))+demoTag(l)+(o.why&&l.why[0]?'<span class="chip-s soft">✨ '+esc(l.why[0])+'</span>':'')+'</div>'+
-    '<div class="lc-meta"><div><small>Last contact</small><b>'+(lt?esc(whenLabel(lt)):'Not yet')+'</b></div><div><small>Next action</small><b>'+nextLine(l)+'</b></div><div><small>Est. value</small><b>'+(v!=null?esc(money(v)):'—')+'</b></div></div>'+
+    '<div class="lc-top"><span class="lc-ico" aria-hidden="true">'+cat.icon+'</span><div class="lc-main"><h3>'+esc(leadName(l))+'</h3>'+(S.addr?'<p>'+esc(l.addr||'No address yet')+'</p>':'')+'</div>'+(S.stage?stagePill(l.stage):'')+'</div>'+
+    '<div class="lc-chips">'+(S.facts?'<span class="chip-s">'+esc(info)+'</span>':'')+(S.band?bandPill(leadBand(l)):'')+demoTag(l)+(S.owner&&own?'<span class="chip-s">Owner: '+esc(own)+'</span>':'')+(o.why&&S.why&&l.why[0]?'<span class="chip-s soft">✨ '+esc(l.why[0])+'</span>':'')+'</div>'+
+    metaRow(l)+
     (o.actions?'<div class="lc-acts">'+
       '<button class="btn-s" data-act="upd-add" data-id="'+esc(l.id)+'">'+ic('plus')+'Add update</button>'+
       '<button class="btn-s" data-act="call-log" data-id="'+esc(l.id)+'">'+ic('phone')+'Log call</button>'+
@@ -110,7 +118,7 @@ function leadCard(l, o){
 }
 ACT['lead-open']=el=>openLead(el.dataset.id);
 document.addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ') && e.target.matches && e.target.matches('.lcard')){ e.preventDefault(); openLead(e.target.dataset.id); } });
-/* the eight stages as bars: counts, dollars from the lead's value, nothing invented */
+/* the stages as bars: counts, dollars from the lead's value, nothing invented */
 function funnelHtml(leads, o){
   o=o||{}; const rows=STAGES.map(s=>{ const L=leads.filter(l=>l.stage===s); return {s, n:L.length, val:L.reduce((t,l)=>t+(leadValue(l)||0),0)}; });
   const max=Math.max(1,...rows.map(r=>r.n));
@@ -119,16 +127,17 @@ function funnelHtml(leads, o){
 ACT['pipe-stage']=el=>{ state.ui.pipeView='list'; state.ui.pipeFilter='all'; state.ui.closed[el.dataset.s]=false; save(); show('pipe'); setTimeout(()=>{ const t=$('#acc-'+el.dataset.s.toLowerCase()); if(t) t.scrollIntoView({block:'start'}); },30); };
 
 /* ---------- the shell: top bar, tabs, sheet ---------- */
-const TABS=[['dash','Dashboard'],['map','Map'],['leads','Leads'],['pipe','Pipeline'],['settings','Settings']];
+const TABS=[['dash','Today'],['map','Map'],['leads','Leads'],['pipe','Pipeline'],['settings','Settings']];
 function paintNav(){
-  $('#nav').innerHTML=TABS.map(([k,l])=>'<button type="button" data-act="tab" data-tab="'+k+'" aria-label="'+l+'"'+(state.ui.tab===k?' class="on" aria-current="page"':'')+'>'+ic(k)+'<span>'+l+'</span></button>').join('');
+  const cur=state.ui.tab==='review'?'map':state.ui.tab;
+  $('#nav').innerHTML=TABS.map(([k,l])=>'<button type="button" data-act="tab" data-tab="'+k+'" aria-label="'+l+'"'+(cur===k?' class="on" aria-current="page"':'')+'>'+ic(k)+'<span>'+l+'</span></button>').join('');
 }
 ACT['tab']=el=>show(el.dataset.tab);
 function setTop(title, sub, action){
   $('#topTitle').textContent=title; $('#topSub').textContent=sub||'';
   $('#topAct').innerHTML=action ? '<button class="topbtn" data-act="'+action.act+'">'+(action.icon?ic(action.icon):'')+'<span>'+esc(action.label)+'</span></button>' : '';
 }
-const VIEWS={dash:()=>viewDash, map:()=>viewMap, leads:()=>viewLeads, pipe:()=>viewPipe, settings:()=>viewSettings};
+const VIEWS={dash:()=>viewDash, map:()=>viewMap, leads:()=>viewLeads, pipe:()=>viewPipe, settings:()=>viewSettings, review:()=>viewReview};
 function show(tab, o){
   if(!VIEWS[tab]) tab='dash';
   closeSheet(); closeDlg(); mapDrop();
@@ -146,8 +155,21 @@ function refresh(){
 function back(){ if(!SHEET) return; closeSheet(); const y=window.scrollY; show(state.ui.tab,{keepScroll:true}); window.scrollTo(0,y); }
 ACT['back']=()=>back();
 
+/* ---------- how much to show: one panel, in Settings and from a "Show" button on the busy screens ---------- */
+const DETAIL_LABEL={simple:'Simple', more:'More', all:'Everything', custom:'Custom'};
+function detailPanel(){
+  const S=state.settings.show, cur=detailName(S);
+  return '<div id="detailBox"><div class="seg" role="group" aria-label="How much to show">'+DETAIL_PRESETS.map(([k,l])=>'<button class="'+(cur===k?'on':'')+'" aria-pressed="'+(cur===k)+'" data-act="detail-preset" data-p="'+k+'">'+l+'</button>').join('')+'</div>'+
+    (cur==='custom'?'<p class="muted sm">Your own mix. Tap Simple, More or Everything to start over.</p>':'')+
+    DETAIL_GROUPS.map(([g,gl])=>'<div class="lab">'+esc(gl)+'</div>'+DETAIL.filter(d=>d[1]===g).map(d=>'<label class="switch two"><input type="checkbox" data-act="detail-sw" data-k="'+d[0]+'"'+(S[d[0]]?' checked':'')+'><span><b>'+esc(d[2])+'</b><small>'+esc(d[3])+'</small></span></label>').join('')).join('')+'</div>';
+}
+const detailChip=()=>'<button class="chip sm" data-act="detail-open" aria-label="How much to show: '+DETAIL_LABEL[detailName(state.settings.show)]+'">⚙ Show: '+DETAIL_LABEL[detailName(state.settings.show)]+'</button>';
+ACT['detail-open']=()=>{ openDlg('<h3>How much to show</h3><p class="muted sm">Start simple, then turn on more as the taps become habit. Nothing is deleted when something is hidden.</p>'+detailPanel()+'<div class="actions"><button class="btn" data-act="dlg-close">Done</button></div>',{cls:'tall', onClose:()=>refresh()}); };
+ACT['detail-preset']=el=>{ state.settings.show=detailPreset(el.dataset.p); save(); const b=$('#detailBox'); if(b) b.outerHTML=detailPanel(); };
+ACT['detail-sw']=el=>{ if(DETAIL_KEYS.includes(el.dataset.k)){ state.settings.show[el.dataset.k]=el.checked; save(); const b=$('#detailBox'); if(b){ const y=($('#dlg')||{}).scrollTop; b.outerHTML=detailPanel(); const d=$('#dlg'); if(d && y) d.scrollTop=y; } } };
+
 /* ---------- lookups: described first, the exact request shown, nothing from your leads attached ---------- */
-const HOSTS={tile:'tile.openstreetmap.org', overpass:'overpass-api.de', nominatim:'nominatim.openstreetmap.org'};
+const HOSTS={tile:'tile.openstreetmap.org', overpass:'overpass-api.de', overpass2:'overpass.private.coffee', nominatim:'nominatim.openstreetmap.org', county:'gis.cuyahogacounty.gov'};
 async function fetchJSON(url, opt){
   const ctl=window.AbortController ? new AbortController() : null, ms=(opt && opt.ms) || 30000, t=setTimeout(()=>ctl && ctl.abort(), ms);
   try{
@@ -157,7 +179,25 @@ async function fetchJSON(url, opt){
     return await r.json();
   } finally { clearTimeout(t); }
 }
-function netMsg(e){ const m=String(e && e.message || e); return /429|504|abort/i.test(m) ? 'The service is busy or the area is too big. Try a smaller radius, or try again in a minute.' : /Failed to fetch|NetworkError|Load failed/i.test(m) ? 'No connection to the service.' : m.slice(0,80); }
+/* for the connection check only: hands back the status instead of throwing, so a refusal can be shown with its code */
+async function fetchProbe(url, opt){
+  const ctl=window.AbortController ? new AbortController() : null, timer=setTimeout(()=>ctl && ctl.abort(), 20000);
+  try{
+    const r=await fetch(url, Object.assign({credentials:'omit', cache:'no-store', signal:ctl?ctl.signal:undefined}, opt||{}));
+    let text=''; if(!r.ok){ try{ text=(await r.text()).replace(/\s+/g,' ').slice(0,80); }catch(_){} }
+    return {ok:r.ok, status:r.status, text};
+  } finally { clearTimeout(timer); }
+}
+function netMsg(e){
+  const m=String(e && e.message || e), code=(m.match(/HTTP (\d{3})/)||[])[1];
+  if(code==='429') return 'The service says too many requests (HTTP 429). Wait a minute, then try again.';
+  if(code==='502'||code==='503'||code==='504') return 'The service is overloaded (HTTP '+code+'). Try again in a minute.';
+  if(/^HOLD/.test(m)){ const n=Number((m.match(/HOLD (\d+)/)||[])[1])||30; return 'The building server asked us to slow down. Wait '+n+' seconds and try again.'; }
+  if(/SERVER-TIMEOUT/.test(m)) return 'The server ran out of time on this part. Try a smaller radius.';
+  if(/abort/i.test(m)) return 'No answer after a minute. Try again, or a smaller radius.';
+  if(/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'No connection to the service.';
+  return m.slice(0,80);
+}
 /* o = {title, intro, hosts[], lines[], payload, editable, ok}. Unless you chose "don't show again", you see exactly what is sent. */
 function confirmSend(o, go){
   if(state.settings.lookups.autoSend){ go(o.payload); return; }
@@ -178,8 +218,9 @@ function confirmSend(o, go){
 function consentCard(){
   return '<section class="card consent"><h3>🛰 Lookups are off</h3><p class="muted">The map and building search use OpenStreetMap, outside your phone. Nothing is sent until you turn this on, and these are the only outside requests the app ever makes:</p>'+
     '<div class="line">🗺 <b>Map pictures</b> from '+HOSTS.tile+' as you move the map. OpenStreetMap sees the area you look at.</div>'+
-    '<div class="line">🏢 <b>Building search</b> at '+HOSTS.overpass+': a center point, a radius and the filters you choose.</div>'+
+    '<div class="line">🏢 <b>Building search</b> at '+HOSTS.overpass+', or at '+HOSTS.overpass2+' only when the first is busy: a center point, a radius and the filters you choose.</div>'+
     '<div class="line">📍 <b>Address search</b> at '+HOSTS.nominatim+': the address you type.</div>'+
+    '<div class="line">🏛 <b>County records</b> at '+HOSTS.county+' (Cuyahoga County): one building’s map position, only when you tap “Look up county record”.</div>'+
     '<p class="muted sm">Nothing from your leads, contacts, prices or notes is ever sent, and there are no cookies. You see the exact request before each search (you can switch that off). OpenStreetMap’s rules ask for this app’s web address on map and address requests; that is the only other thing sent. Email is never sent from here: a draft opens in your mail app and you tap send.</p>'+
     '<div class="actions"><button class="btn" data-act="lookups-on">Turn on lookups</button></div></section>';
 }

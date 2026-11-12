@@ -2,7 +2,7 @@
    deep navy, royal and bright blue, cyan highlight, sky-white. Layout follows the shared mockups. */
 :root{
   --navy-950:#00152A; --navy-900:#001B3A; --navy-800:#002A4D; --navy-700:#04315C;
-  --ink:#051937; --royal:#0A5EB6; --blue:#0E7CCB; --bright:#118AD6; --cyan:#19DDFA;
+  --ink:#051937; --royal:#0A5EB6; --blue:#0E7CCB; --bright:#118AD6; --cyan:#00E5F7;
   --sky-50:#F2F7FD; --sky-100:#E5F0FB; --sky-200:#BAD5EC; --sky-300:#8CC6E5;
   --muted:#4A6078; --line:#D3E2F2; --card:#fff;
   --ok:#14805A; --ok-bg:#E1F5EC; --warn:#8A5A00; --warn-bg:#FFF4DC; --bad:#B3342B;
@@ -230,3 +230,52 @@ details{margin:8px 0}summary{min-height:44px;display:flex;align-items:center;fon
 /* map search: the Search button stays in reach while the filters are open; results land clear of the sticky header */
 .actionbar{position:sticky;bottom:calc(60px + var(--sb));z-index:5;background:var(--card);margin:10px -14px 0;padding:10px 14px;border-top:1px solid var(--line)}
 #results,#mapHost{scroll-margin-top:76px}.btnrow2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.crec{border-top:1px solid var(--line);margin-top:10px;padding-top:10px;overflow-wrap:anywhere}.crec>b{display:block;font-size:16px;margin-bottom:4px}.crec .btn{margin-top:8px}
+
+/* ---- how much to show ---- */
+.switch.two{align-items:flex-start;padding:6px 0}.switch.two input{margin-top:4px}
+.switch.two span{display:flex;flex-direction:column;min-width:0}.switch.two b{font-size:14px}.switch.two small{color:var(--muted);font-weight:500;font-size:12px;overflow-wrap:anywhere}
+#detailBox .seg{margin-top:10px}
+.lc-meta.m1{grid-template-columns:minmax(0,1fr)}.lc-meta.m2{grid-template-columns:repeat(2,minmax(0,1fr))}
+#toast.top{bottom:auto;top:calc(72px + var(--st));transform:translate(-50%,-20px)}#toast.top.show{transform:translate(-50%,0)}
+
+/* ---- swipe review ---- */
+.seg3 button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;line-height:1.15;padding:4px 2px;font-size:13px}.seg3 button small{font-size:15px;font-weight:800}
+.center{text-align:center}.rv-count{font-size:13px;color:var(--muted);font-weight:700;margin:4px 2px 8px}
+.rv-stage{position:relative;overflow:hidden;padding:2px 2px 8px}
+.scard{position:relative;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:14px;box-shadow:var(--shadow);touch-action:pan-y;-webkit-user-select:none;user-select:none;will-change:transform}
+.scard.drag{cursor:grabbing}.scard:focus-visible{outline-offset:-3px}
+.sc-pic{height:clamp(92px,19vh,150px);border-radius:14px;background:var(--sky-50);border:1px solid var(--sky-100);display:grid;place-items:center;margin-bottom:12px;overflow:hidden}
+.sc-pic svg{width:100%;height:100%}.sc-shape{fill:var(--sky-200);stroke:var(--royal);stroke-width:2.5;stroke-linejoin:round}.sc-pic .big{font-size:56px}
+.sc-head{display:flex;gap:10px;align-items:center;margin-bottom:4px}.sc-head h2{font-size:21px;line-height:1.2;overflow-wrap:anywhere;min-width:0}.sc-head .rk{flex:none}
+.scard .btn-s{margin-top:12px}
+.sw-lab{position:absolute;top:16px;z-index:2;padding:3px 12px;border-radius:10px;font-weight:900;letter-spacing:1px;font-size:16px;opacity:0;border:3px solid;background:rgba(255,255,255,.9);pointer-events:none}
+.sw-lab.pur{left:16px;color:var(--ok);border-color:var(--ok);transform:rotate(-8deg)}.sw-lab.pas{right:16px;color:var(--bad);border-color:var(--bad);transform:rotate(8deg)}
+.scard.go-pur .sw-lab.pur,.scard.go-pas .sw-lab.pas{opacity:1}
+.rv-btns{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:10px;margin:6px 0 10px;position:sticky;bottom:calc(66px + var(--sb));z-index:5;padding:8px 0;background:linear-gradient(to top,var(--sky-100) 78%,rgba(229,240,251,0))}
+.rv-btns button{min-height:64px;border-radius:16px;border:2px solid;font-weight:800;font-size:15px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:0}
+.rv-btns button span{font-size:20px;line-height:1}
+.rv-btns .pas{color:var(--bad);border-color:#E7B7B2}.rv-btns .inv{color:var(--warn);border-color:#F0D79B;background:var(--warn-bg)}.rv-btns .pur{color:#fff;background:var(--ok);border-color:var(--ok)}
+.rvrow{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px;margin-bottom:10px;box-shadow:var(--shadow)}.rvrow h3{overflow-wrap:anywhere}
+.rv-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.btnrow2.rv{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)}
+@media (prefers-reduced-motion:reduce){.scard,#toast{transition:none!important}}
+
+/* ---- IAI look (from the owner's website mockups): italic heavy titles, cyan accent, logo in the header ---- */
+.brand img{display:block;height:36px;width:auto;max-width:96px}
+#topTitle{font-style:italic;text-transform:uppercase;letter-spacing:.3px}
+#topSub{text-transform:uppercase;letter-spacing:.14em;font-size:10.5px;color:var(--cyan)}
+/* My Field Day */
+.today{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 12px}
+.tdy{min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:8px 6px;border:1px solid var(--line);background:#fff;border-radius:14px;box-shadow:var(--shadow)}
+.tdy b{font-size:22px;line-height:1;font-weight:800;font-style:italic;color:var(--royal)}
+.tdy span{font-size:12px;color:var(--muted);text-align:center;line-height:1.15}
+.card.nudge{border-left:4px solid var(--cyan)}
+.card.nudge p{margin:4px 0 10px}
+.routemi{margin-top:8px}
+.moretip{text-align:center;margin:6px 0 14px}
+.brand{width:auto;height:auto;border:0;background:none;border-radius:0;display:block}
+
+/* quote from the customer's request */
+.reqbox{border:1px dashed var(--sky-300);border-radius:12px;padding:4px 10px 8px;margin:8px 0}
+.reqbox summary{min-height:40px;display:flex;align-items:center;font-weight:700;color:var(--royal);cursor:pointer}

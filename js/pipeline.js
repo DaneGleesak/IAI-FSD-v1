@@ -6,8 +6,8 @@ function pipeLeads(){
   return L;
 }
 function viewPipe(m){
-  const all=state.properties, open=all.filter(isOpen), won=all.filter(l=>l.stage==='Won').length, lost=all.filter(l=>l.stage==='Lost').length;
-  const total=open.reduce((t,l)=>t+(leadValue(l)||0),0), active=open.filter(l=>!['Identified','Researching'].includes(l.stage)).length;
+  const all=state.properties, open=all.filter(isOpen), won=all.filter(l=>WON_STAGES.includes(l.stage)).length, lost=all.filter(l=>l.stage==='Lost').length;
+  const total=open.reduce((t,l)=>t+(leadValue(l)||0),0), active=open.filter(l=>l.stage!=='Lead').length;
   setTop('Pipeline','From first look to a sale',{act:'lead-new', label:'Add', icon:'plus'});
   const V=state.ui.pipeView, F=state.ui.pipeFilter;
   m.innerHTML='<div class="kpis four">'+kpi('Total pipeline',total?esc(money(total)):'—','open, your estimates')+kpi('Active deals',active,'in conversation or later')+kpi('Win rate',(won+lost)?Math.round(won/(won+lost)*100)+'%':'—',(won+lost)?won+' won, '+lost+' lost':'no closed deals yet')+kpi('Overdue',all.filter(isOverdue).length,'leads with a late next action')+'</div>'+
@@ -30,11 +30,11 @@ function paintPipeList(body, L){
 ACT['acc-toggle']=el=>{ const s=el.dataset.s, cur=state.ui.closed[s]!==undefined ? state.ui.closed[s] : (!state.properties.some(l=>l.stage===s) || !OPEN.includes(s)); state.ui.closed[s]=!cur; save(); show('pipe',{keepScroll:true}); };
 function paintBoards(body, L){
   body.innerHTML='<p class="muted sm">Swipe sideways. Use the arrows on a card to move it to the next or previous stage.</p><div class="boards">'+STAGES.map(s=>{
-    const items=sortLeads(L.filter(l=>l.stage===s),'priority'), i=OPEN.indexOf(s);
+    const items=sortLeads(L.filter(l=>l.stage===s),'priority'), i=FLOW.indexOf(s);
     return '<section class="col"><div class="col-h"><span class="dot" style="background:'+STAGE_COL[s]+'"></span><b>'+s+'</b><span class="count">'+items.length+'</span></div>'+
       (items.map(l=>'<article class="bcard"><button class="bc-main" data-act="lead-open" data-id="'+esc(l.id)+'"><b>'+esc(leadName(l))+'</b><small>'+esc((leadValue(l)!=null?money(leadValue(l))+' · ':'')+(leadBand(l)?leadBand(l)+' priority':'No priority set'))+'</small>'+(isOverdue(l)?'<small class="late">Next action overdue</small>':'')+'</button>'+
         '<div class="bc-acts">'+(i>0?'<button class="iconbtn sm" data-act="stage-next" data-id="'+esc(l.id)+'" data-d="-1" aria-label="Move back a stage">'+ic('back')+'</button>':'<span></span>')+
-        (i>=0?'<button class="iconbtn sm" data-act="stage-next" data-id="'+esc(l.id)+'" data-d="1" aria-label="Move to the next stage">'+ic('chev')+'</button>':'<button class="chip sm" data-act="stage-set" data-id="'+esc(l.id)+'">Stage</button>')+'</div></article>').join('')||'<p class="muted sm">Empty</p>')+'</section>';
+        (i>=0&&i<FLOW.length-1?'<button class="iconbtn sm" data-act="stage-next" data-id="'+esc(l.id)+'" data-d="1" aria-label="Move to the next stage">'+ic('chev')+'</button>':i>=0?'<span></span>':'<button class="chip sm" data-act="stage-set" data-id="'+esc(l.id)+'">Stage</button>')+'</div></article>').join('')||'<p class="muted sm">Empty</p>')+'</section>';
   }).join('')+'</div>';
 }
 /* leads placed by where they are: no map pictures, so nothing is requested from outside */

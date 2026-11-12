@@ -22,7 +22,7 @@ const t = suite('field-sales slice');
   t.eq(T.outside.length, 0, 'no outside request on first launch');
 
   /* ---- 2. navigation: all five tabs ---- */
-  const names = {dash:'Field Dashboard', map:'Territory Map', leads:'Leads', pipe:'Pipeline', settings:'Settings'};
+  const names = {dash:'My Field Day', map:'Territory Map', leads:'Leads', pipe:'Pipeline', settings:'Settings'};
   for (const k of Object.keys(names)) { await tab(k); t.eq(await title(), names[k], 'tab '+k+' opens '+names[k]); }
   t.eq(T.outside.length, 0, 'browsing every tab sends nothing outside (map shows the consent card)');
   t.ok((await page.textContent('#main')).includes('Lookups are off') || true, 'map tab opens');
@@ -37,7 +37,7 @@ const t = suite('field-sales slice');
     t.ok((await page.textContent('#sheet .sh-body')).length>20, 'Property Intelligence tab '+k+' renders');
   }
   await page.click('#sheet [data-act="back"]'); t.ok(await page.isHidden('#sheet'), 'Back closes Property Intelligence');
-  await tab('pipe'); t.ok(await page.isVisible('#main [data-act="lead-open"][data-id="'+id+'"]') || (await page.click('#acc-Proposal, [data-act="acc-toggle"][data-s="Proposal"]').then(()=>true,()=>false)), 'the same record is in the Pipeline');
+  await tab('pipe'); t.ok(await page.isVisible('#main [data-act="lead-open"][data-id="'+id+'"]') || (await page.click('#acc-quote, [data-act="acc-toggle"][data-s="Quote"]').then(()=>true,()=>false)), 'the same record is in the Pipeline');
   await page.evaluate(i=>openLead(i), id); await page.waitForSelector('#sheet:not([hidden])');
   t.eq(await page.textContent('#sheet h2'), 'Demo Tower One', 'the Pipeline reaches the same record');
   await page.click('#sheet [data-act="back"]');
@@ -86,8 +86,8 @@ const t = suite('field-sales slice');
   await page.click('#toast button'); // Undo
   after = (await S()).properties.find(p=>p.id===lid); t.eq(after.stage, before, 'Undo puts the stage back');
   await page.click('#sheet [data-act="stage-set"]'); await page.waitForSelector('#sgOk');
-  await page.click('#sgS [data-v="Qualified"]'); await page.fill('#sgT','Manager is interested'); await page.click('#sgOk');
-  after = (await S()).properties.find(p=>p.id===lid); t.eq(after.stage, 'Qualified', 'the stage picker sets any stage');
+  await page.click('#sgS [data-v="Meeting"]'); await page.fill('#sgT','Manager is interested'); await page.click('#sgOk');
+  after = (await S()).properties.find(p=>p.id===lid); t.eq(after.stage, 'Meeting', 'the stage picker sets any stage');
   await page.click('#sheet [data-act="back"]'); await tab('pipe');
   t.ok((await page.textContent('#main')).includes('Test Building'), 'the Pipeline shows the lead in its new stage');
 
@@ -141,9 +141,9 @@ const t = suite('field-sales slice');
   await page.click('#eSent');
   let L4 = (await S()).properties.find(p=>p.id===lid);
   t.ok(L4.events.some(e=>e.type==='touch' && e.how==='email'), '“I sent it” logs the email');
-  t.eq(L4.stage, 'Proposal', 'a sent, approved quote moves the lead to Proposal');
+  t.eq(L4.stage, 'Quote', 'a sent, approved quote moves the lead to Quote');
   await page.click('#eUndo'); L4 = (await S()).properties.find(p=>p.id===lid);
-  t.ok(!L4.events.some(e=>e.type==='touch' && e.how==='email') && L4.stage==='Qualified', 'Undo reverses the log and the stage');
+  t.ok(!L4.events.some(e=>e.type==='touch' && e.how==='email') && L4.stage==='Meeting', 'Undo reverses the log and the stage');
   await page.click('#dlg [data-act="dlg-close"]');
 
   /* demo properties cannot get a customer-facing quote */

@@ -18,7 +18,7 @@ id, name, addr, lat, lon, cat            identity and place (cat: office, hotel,
 src       'map' | 'address' | 'manual' | 'demo'
 demo      true on invented demonstration data
 osm       OpenStreetMap id (so a building is never added twice)
-stage     Identified · Researching · Contacted · Qualified · Proposal · Negotiation · Won · Lost
+stage     Lead · Contacted · Meeting · Quote · Scheduled · Completed · Lost  (the owner's own funnel; open = the first five, wins = Scheduled + Completed). Saves and backups made with the earlier eight names are renamed on load by `stageName()`: Identified/Researching → Lead, Qualified → Meeting, Proposal/Negotiation → Quote, Won → Scheduled; lead stage, stage-change history and the remembered Pipeline view are all renamed, nothing is dropped.
 band, prio, why[]   ranking: High/Medium/Lower and the plain reasons (✨ inference); prio is the owner's override
 bld       {levels, height, sqft, perimFt, glass, op(opening hours text), web, phone, email, airMi, airName, approx, outline[[lat,lon]], checked, src}
           map-derived numbers are estimates with a source; checked=true once the owner confirms them
@@ -45,10 +45,12 @@ How the pieces connect:
 ## Other state
 
 ```
-settings   {lookups:{on, autoSend}, sender:{name, company, phone, email, address, blurb, optOut}, floorFt,
+settings   {lookups:{on, autoSend}, show{addr, facts, band, stage, next, last, value, why, owner, summary, outline, askWhy: true|false},
+            sender:{name, company, phone, email, address, blurb, optOut}, floorFt,
             services[{id, name, unit, rate, min, on, core, pitch…}], playbooks[]}
 map        {view, pin, radius, crit, lens, offer[]}        what the Territory Map is showing
 search     {last, runs[≤30], saved[≤60]}                   the last result list (candidates, not leads), recent and saved areas
+review     {decisions[≤2500: {id, d:'pursue'|'investigate'|'pass', ts, reason, leadId, cand}]}   one choice per building, newest first; `cand` is the building as it was; `leadId` is set only when the swipe made the lead
 counters   {quote}                                         Q-0001… never reused
 route      {day, ids[]}                                    today's route, reset each day
 ui         {tab, seeded, mapTab, pipeView, pipeFilter, leadSort, leadStage, showN, closed{}}
@@ -66,12 +68,14 @@ A map search produces *candidates* in `search.last`. A candidate becomes a prope
 
 ## Outside requests
 
-The app has one network function, `fetchJSON` in `js/ui.js` (`credentials:'omit'`, `cache:'no-store'`, no referrer except address search, where OpenStreetMap asks for the app's origin). `sw.js` ignores every cross-origin request.
+The app has one network function, `fetchJSON` in `js/ui.js` (`credentials:'omit'`, `cache:'no-store'`, no referrer except address search, where OpenStreetMap asks for the app's origin). Map pictures (plain `<img>` requests) also send the app's origin only (`referrerPolicy='origin'`), because OpenStreetMap's tile servers refuse requests with no Referer. `sw.js` ignores every cross-origin request.
 
 | Host | When | What is sent |
 |---|---|---|
-| `tile.openstreetmap.org` | only while the Territory Map is open with lookups on | the tile coordinates being viewed |
+| `tile.openstreetmap.org` | only while the Territory Map is open with lookups on | the tile coordinates being viewed, and the app's web address (origin only) as Referer |
 | `overpass-api.de` | on tapping Search, after the exact request is shown | centre point, radius, filters |
+| `overpass.private.coffee` (backup, owner-approved) | only when `overpass-api.de` is busy (429/5xx), down or silent; the same request shown before Search | the same centre point, radius, filters. Its map data can be a little older, and the app says so |
 | `nominatim.openstreetmap.org` | on tapping Go/Research, after the exact request is shown | the address typed |
+| `gis.cuyahogacounty.gov` | on tapping “Look up county record”, after the exact request is shown | one building's map position (longitude, latitude) |
 
 Plain links the owner taps (Call, Text, Email, Apple Maps, NWS forecast, FAA LAANC, web search, Ohio business search) are ordinary `<a>` links the phone opens; the app never fetches them. `tests/outside.js` and `tests/hygiene.js` enforce this.

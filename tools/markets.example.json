@@ -1,4 +1,21 @@
 [
-  { "label": "Sampletown downtown", "address": "1 Example Street, Sampletown", "miles": 3, "preset": "targets" },
-  { "label": "Sampletown east side", "lat": 40.0, "lon": -83.0, "miles": 3, "preset": "hotels" }
+  {
+    "label": "Sampletown downtown",
+    "address": "1 Example Street, Sampletown",
+    "miles": 3,
+    "preset": "targets"
+  },
+  {
+    "label": "Sampletown east side",
+    "lat": 40.0,
+    "lon": -83.0,
+    "miles": 3,
+    "preset": "hotels"
+  },
+  {
+    "label": "Sampletown county sweep (example box)",
+    "box": "40.0,-83.1,40.1,-82.9",
+    "miles": 2,
+    "preset": "targets"
+  }
 ]

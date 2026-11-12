@@ -17,6 +17,16 @@ function serve(root, port){
 
 /* invented Overpass answer: three buildings in a made-up town, no real names */
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==','base64');
+/* invented county parcel answers: owners and parcels that do not exist */
+function mockCounty(url){
+  const g=/geometry=(-?[\d.]+),(-?[\d.]+)/.exec(url)||[], lon=Number(g[1]), lat=Number(g[2]), layer=(/MapServer\/(\d)/.exec(url)||[])[1];
+  if(lon>-81.31) return {error:{code:400, message:'Invalid query'}};
+  const downtown = lat>41.49 && lon<-81.65;
+  const rec = downtown
+    ? {PARCELPIN:'999000002', DEEDED_OWNER:'MOCK CITY HOLDINGS LLC', PAR_ADDR_ALL:'2 TEST ST', TAX_LUC:'998', TAX_LUC_DESCRIPTION:'MOCK OFFICE', TOTAL_COM_USE_AREA:310000, COM_LIVING_UNITS:0}
+    : {PARCELPIN:'999000001', DEEDED_OWNER:'MOCK HOLDINGS LLC', MAIL_NAME:'MOCK MGMT CO', MAIL_ADDR_STREET:'1 TEST WAY', MAIL_CITY:'MOCKTOWN', MAIL_STATE:'OH', MAIL_ZIP:'44000', PAR_ADDR_ALL:'1 TEST AVE', TAX_LUC:'999', TAX_LUC_DESCRIPTION:'MOCK HOTEL', TOTAL_COM_USE_AREA:52400, COM_LIVING_UNITS:120, TRANSFER_DATE:1700000000000, SALES_AMOUNT:1234567};
+  return (downtown ? layer==='0' : layer==='1') ? {features:[{attributes:rec}]} : {features:[]};
+}
 function mockOverpass(){
   const sq=(lat,lon,d)=>[{lat:lat-d,lon:lon-d},{lat:lat-d,lon:lon+d},{lat:lat+d,lon:lon+d},{lat:lat+d,lon:lon-d},{lat:lat-d,lon:lon-d}];
   return { elements:[
@@ -35,12 +45,16 @@ async function launch(opts){
   const ctx = await browser.newContext({ viewport:{width:opts.w||390,height:opts.h||844}, deviceScaleFactor:1, hasTouch:!!opts.touch, isMobile:!!opts.touch, serviceWorkers:'block', permissions:['clipboard-read','clipboard-write'], acceptDownloads:true });
   const outside = [];           // every request that left the app's own origin
   const bodies = [];            // text sent in those requests
+  const hooks = { overpass:null, overpass2:null };   // a test can make the main / backup building search misbehave: (body, n) => null | {status} | {json}
+  const opN = { overpass:0, overpass2:0 };
   await ctx.route(u=>!u.href.startsWith('http://localhost:'+port), async route=>{
     const r = route.request(), url = r.url();
-    outside.push({url, method:r.method()}); if(r.postData()) bodies.push(r.postData()); bodies.push(url);
+    outside.push({url, method:r.method(), referer:r.headers()['referer']||''}); if(r.postData()) bodies.push(r.postData()); bodies.push(url);
     if(/tile\.openstreetmap\.org/.test(url)) return route.fulfill({status:200, contentType:'image/png', body:PNG});
-    if(/overpass-api\.de/.test(url)) return route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(mockOverpass())});
+    const which = /overpass-api\.de/.test(url) ? 'overpass' : /overpass\.private\.coffee/.test(url) ? 'overpass2' : null;
+    if(which){ const h = hooks[which] && hooks[which](decodeURIComponent(String(r.postData()||'').replace(/^data=/,'').replace(/\+/g,' ')), ++opN[which]); if(h && h.abort) return route.abort(); if(h && h.status) return route.fulfill({status:h.status, contentType:'text/plain', body:'busy'}); if(h && h.json) return route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(h.json)}); return route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(mockOverpass())}); }
     if(/nominatim\.openstreetmap\.org/.test(url)) return route.fulfill({status:200, contentType:'application/json', body:JSON.stringify([{display_name:'1 Test Ave, Mocktown', lat:'39.9600', lon:'-82.9900', osm_type:'way', osm_id:9001, type:'office', category:'building', address:{house_number:'1', road:'Test Ave', city:'Mocktown'}}])});
+    if(/gis\.cuyahogacounty\.gov/.test(url)) return route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(mockCounty(url))});
     return route.abort();
   });
   const page = await ctx.newPage();
@@ -49,7 +63,7 @@ async function launch(opts){
   page.on('console', m=>{ if(m.type()==='error' && !/Failed to load resource/.test(m.text())) errors.push('console: '+m.text()); });
   page.on('dialog', d=>{ dialogs.push(d.type()+': '+d.message()); d.dismiss().catch(()=>{}); });
   const base = 'http://localhost:'+port+'/';
-  return { port, base, srv, browser, ctx, page, outside, bodies, errors, dialogs,
+  return { port, base, srv, browser, ctx, page, outside, bodies, errors, dialogs, hooks,
     async open(q){ await page.goto(base+(q||'')); await page.waitForSelector('#nav button'); },
     async close(){ await browser.close(); srv.close(); } };
 }

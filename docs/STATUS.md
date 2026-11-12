@@ -1,6 +1,6 @@
 # Implementation status
 
-Version 1.0.0, first vertical slice. Last updated with the first pull request.
+Version 1.0.0, first vertical slice. Last updated with the simple-view and swipe-review pull request.
 Legend: ✅ working and covered by a test · 🟡 working, partly simulated or limited · ⬜ not built.
 
 ## The ten requirements
@@ -23,8 +23,18 @@ Legend: ✅ working and covered by a test · 🟡 working, partly simulated or l
 **Real (works today, no setup)**
 - All screens, saving, editing, undo, backup/restore, install, offline.
 - Ranking and quote maths from building numbers you or the map supply.
-- **Mac mini market scan**: `tools/market-scan.mjs` makes a ranked pack from OpenStreetMap on a Mac mini (same engine as the app); the phone imports it from a file with lookups on or off, and sends nothing (`tests/scan.js`). See `docs/MAC-MINI.md`.
+- **Mac mini market scan**: `tools/market-scan.mjs` makes a ranked pack from OpenStreetMap on a Mac mini (same engine as the app); the phone imports it from a file with lookups on or off, and sends nothing. It is gentle with the free servers (two requests per place, a minute's rest after “too many requests”, the backup server when the main one is busy) and can **sweep a whole box** such as a county with many small overlapping circles, keeping the best 400. Tested against a stand-in server only (`tests/scan.js`); the real servers were not reachable, so run one small market first. See `docs/MAC-MINI.md`.
+- **Quote from the request**: in the quote dialog, paste what the customer asked for and the app reads it on the phone (no AI, nothing sent) and suggests services, floors, frequency and the dates they gave, each with the words it came from. Nothing changes until you tick it and tap Use; ticked services become the scope. Their words are kept on the quote (shown at approval, never pasted into the customer text). `tests/request.js`, `tests/engine.js`.
 - Map search is map-first: after Search the filters fold into one line (“Change filters” brings them back) and the ranked results sit right under the map. A 3 mi radius is one tap, a fresh install starts on the hotels / apartments / offices / medical preset, and the Search button stays in reach while the filters are open (`tests/outside.js`).
+- **Connection check** (Settings): one tiny test to each of the five services (map picture, address search, building search, backup building search, county records), the exact requests shown first, results as ✅/❌ with the HTTP code and time, and a Copy button. Sends no lead data and names no building. Added so a failing search can be diagnosed from the phone. `tests/search.js`.
+- **Building search, gentle version**: a map search is two requests, not many: all the building kinds you chose in one (exact tag values, 45 s server limit), then a small optional one for airport distances. The confirm step shows both. Manners the public server asks for: after a 429 (“too many requests”) that server is left alone for 30 s and a new search says how long to wait instead of asking again; a gateway error (502/503/504) earns one more round after a 10 s pause, never a rapid retry; a server that says it ran out of time (the area is too big) is not asked again, here or at the backup, and the message says to try a smaller radius. The main server is asked first; the owner-approved backup (`overpass.private.coffee`) is asked only when the main one is busy, down or silent, and the message says its map data can be a little older. If the airports fail the buildings are kept with a plain “Not everything was searched” note; if the buildings fail nothing is saved. Map pictures now send the app's web address (origin only) as Referer, which OpenStreetMap's tile servers require. Whether this fixes the owner's 3-mile failure on the live servers is **unverified** (the build environment cannot reach them): Settings → Check connection will show what each service says. `tests/search.js`, `tests/engine.js`, `tests/outside.js`.
+- **Your funnel**: Lead · Contacted · Meeting · Quote · Scheduled · Completed (and Lost). One tap on a lead moves it along; the last step is “Mark completed”. Win rate counts Scheduled and Completed against Lost. Old saves and backups are renamed on load, with the history. `tests/stages.js`.
+- **Backup reminder**: Home shows a calm card only when there is real (not demo) work newer than the last backup and it has been a week (or a day, if you never backed up). One tap opens the phone's share sheet (Save to Files, iCloud Drive, AirDrop), falling back to a download. “Last backup” shows in Settings; cancelling the share sheet does not count. “Later” hides the card for three days. `tests/stages.js`.
+- **My Field Day**: the home screen, Simple by default. Three new “On My Field Day” switches (number tiles, territory sketch, pipeline snapshot) bring back what was there before; a save that was on More or Everything keeps them. The route shows straight-line miles between stops that have a map position. `tests/fieldday.js`.
+- **IAI look**: the logo in the header (cut from the owner's website mockup: low resolution, replace with the real file when it arrives), italic titles, cyan accent.
+- **How much to show**: twelve on/off switches (Simple, More or Everything, or one at a time) for what building cards, map results and Review display. A fresh install and any older save start on **Simple**: name, address, type, band, stage and next action only; “why it ranks”, last contact, value, owner and the long search explanation are switched off until you turn them on. Settings has the panel, and a “Show” button on Leads, the results and Review opens it. Hiding never deletes data; DEMO DATA tags and the one-line “order is a suggestion” note always stay. `tests/detail.js`.
+- **Swipe review**: from the map results, go through the found buildings one card at a time. Right = Pursue (adds a lead), left = Pass, middle button = Investigate (holds it); buttons and arrow keys work too; undo after each; passed and held piles are kept and searchable; every choice is saved with the building and included in backups. Works on the area (pin + radius) search. Plan for county and city search and the rest: [SWIPE-REVIEW-PLAN](SWIPE-REVIEW-PLAN.md). `tests/review.js`.
+- **County records (Cuyahoga)**: in a building's Contacts tab, “Look up county record” asks the county's public parcel records about that one map position (the exact request is shown first; nothing else is sent). It shows the deeded owner, mailing address, land use, building area and living units, labelled as the county's record. The owner fact is filled only when you tap “Use as owner” (estimated, source named); a typed owner is never replaced without asking. `tests/county.js` (mocked county, invented owners).
 - Draft emails and quotes; opening a draft in the phone's mail app; copy to clipboard.
 - Call / Text / Email / Navigate links (plain `tel:`, `sms:`, `mailto:`, Apple Maps), followed only when tapped.
 
@@ -32,7 +42,8 @@ Legend: ✅ working and covered by a test · 🟡 working, partly simulated or l
 - **Demonstration data**: six invented properties, owners and contacts, clearly labelled. Their building numbers are invented, so quotes on them cannot be approved.
 - **Map, building search and address search** use OpenStreetMap when the owner turns lookups on. They are **mocked in all automated tests**; the build environment had no access to the live services, so **live behaviour is unverified** (rate limits, real data quality, the Overpass query on real data). Floors, outlines and addresses are volunteer-mapped and may be missing or wrong. The app says so.
 - **Dashboard and Pipeline maps** are simple schematics drawn from the leads' coordinates, with no map tiles, so those screens make no outside request.
-- **Owner / manager / decision-maker research** is a set of search links the owner taps (county parcel record, business registration, web search). Results are typed in by the owner and marked *You typed it*. No data provider is integrated.
+- **County records live behaviour is unverified**: the build environment could not reach `gis.cuyahogacounty.gov`, so the field names, the land-use codes and whether the county allows requests from a web page (CORS) are untested against the real server. If it refuses, the answer is a plain “County lookup failed” and the Mac mini tool is the fallback. The county has no floor count or year built.
+- **Owner / manager / decision-maker research** (other than the county lookup above) is a set of search links the owner taps (county parcel record, business registration, web search). Results are typed in by the owner and marked *You typed it*. No data provider is integrated.
 - **Airspace** shows only the distance to the nearest *mapped* airport and a link to the FAA LAANC page. No airspace or flight-clearance service is integrated.
 - **Email** is never sent by the app. A draft opens in the owner's mail app.
 - **Prices**: none are built in. The owner types a rate per service in Settings.
@@ -43,6 +54,7 @@ Legend: ✅ working and covered by a test · 🟡 working, partly simulated or l
   - **Planned (owner): Trellis** will transcribe calls so the app can understand each property better. Step 1 is attaching a transcript to the property's activity timeline (stored on the phone). Step 2 is a "what I heard" list the owner reviews (decision maker, timing, current vendor, objections, next step), each marked ✨ as a suggestion and added to the record only when the owner accepts it. Audio, if ever stored, goes in IndexedDB, never localStorage. A live link is a new outside host and needs the owner's approval first. Call-recording consent rules differ by state, so they should be checked before recording (this is not legal advice).
 - ⬜ Airspace/LAANC integration, weather window planning
 - ⬜ Multi-user accounts, cloud sync, team assignment
+- ⬜ Search by **county** and **city** feeding the same Review deck, obstacle flags, worth-it tiers (need the owner's own numbers) and imagery: [SWIPE-REVIEW-PLAN](SWIPE-REVIEW-PLAN.md)
 - ⬜ Planned (owner): Mac mini lanes: sharing between reps, local AI for outreach, call transcription (`docs/MAC-MINI.md`); My Field Day home and quote-from-the-request (`docs/ROADMAP.md`)
 - ⬜ Customer-facing quote PDF, e-signature, invoicing
 - ⬜ Push notifications and calendar integration
@@ -52,13 +64,14 @@ Legend: ✅ working and covered by a test · 🟡 working, partly simulated or l
 ## Needs review
 
 1. **Real iPhone pass**: Safari and home-screen mode, safe areas, keyboard behaviour in dialogs, `mailto:` hand-off, Apple Maps links, photo picker.
-2. **Live OpenStreetMap pass**: turn lookups on and try a real search around a known service area. Check Overpass load, result quality, and the 8-mile airport check.
-3. **Ranking weights**: the High/Medium/Lower rules (height, size, type, glass, nearness, how much is known) are a reasonable first guess. Product review welcome.
-4. **Quote model**: price = owner's rate × floors × building edge (or flat/per-sq-ft units). Confirm this matches how IAI prices; only the owner can supply rates.
-5. **Pipeline stages and wording**: Identified · Researching · Contacted · Qualified · Proposal · Negotiation · Won · Lost.
-6. **Email wording and compliance**: the draft carries the owner's mailing address and an opt-out line. The owner should have the final wording reviewed.
-7. **Third-party links**: Google search, Ohio business search (shown for Ohio addresses), NWS forecast, FAA LAANC page, Apple Maps. Each leaves the app only when tapped.
-8. **Look and feel**: compare against the mockups; list differences that matter.
+2. **Live county pass**: Map → turn lookups on → open a building in Cuyahoga County → Contacts → “Look up county record”. Check the owner, units and area look right.
+3. **Live OpenStreetMap pass**: turn lookups on and try a real search around a known service area. Check Overpass load, result quality, and the 8-mile airport check.
+4. **Ranking weights**: the High/Medium/Lower rules (height, size, type, glass, nearness, how much is known) are a reasonable first guess. Product review welcome.
+5. **Quote model**: price = owner's rate × floors × building edge (or flat/per-sq-ft units). Confirm this matches how IAI prices; only the owner can supply rates.
+6. **Pipeline stages and wording**: now the owner's own funnel (Lead · Contacted · Meeting · Quote · Scheduled · Completed · Lost). Old saves are renamed on load (see DATA-MODEL). Confirm Qualified → Meeting and Won → Scheduled suit how you think of those leads.
+7. **Email wording and compliance**: the draft carries the owner's mailing address and an opt-out line. The owner should have the final wording reviewed.
+8. **Third-party links**: Google search, Ohio business search (shown for Ohio addresses), NWS forecast, FAA LAANC page, Apple Maps. Each leaves the app only when tapped.
+9. **Look and feel**: compare against the mockups; list differences that matter.
 
 ## Known limitations
 

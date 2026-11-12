@@ -23,7 +23,7 @@ The first launch shows **demonstration data** (invented). Clear it from the bann
 | Approval gate | Save the draft → **Prepare outreach** | "Include my quote" is disabled until you tap **Approve Q-0001 first**, read it, tick the box and Approve |
 | Email never auto-sent | In the email draft, add an address → **Open in Mail** | Hands the draft to the phone's mail app; the app logs nothing until you tap **I sent it** (Undo available) |
 | Demo can't be sent | Open a demo property → Draft quote → Approve & email | Refused with an explanation; Open in Mail is disabled |
-| Outside requests are opt-in | Territory Map with lookups off; browser dev tools → Network | Nothing leaves the page. After **Turn on lookups**, only the three OpenStreetMap hosts, with the exact request shown first |
+| Outside requests are opt-in | Territory Map with lookups off; browser dev tools → Network | Nothing leaves the page. After **Turn on lookups**, only the declared hosts (three OpenStreetMap hosts and, when the main building server is busy, its backup), with the exact request shown first |
 | Privacy | After a search, inspect the request text | A point, a radius and filters only |
 
 ## Where each requirement is proven

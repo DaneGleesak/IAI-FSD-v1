@@ -13,9 +13,10 @@ Tap a place on the map, say how far to look and what kind of building, and the a
 | **Dashboard** | Today's numbers, top-priority lead (Call / Navigate / Note / Photo), today's route, follow-ups due, pipeline snapshot |
 | **Territory Map** | Drop a pin, pick a radius, building type and minimum stories, then search. Results come back ranked **High / Medium / Lower** with the plain reasons. Saved areas and recent searches |
 | **Property Intelligence** | One building in depth: Overview · Contacts · Services · Notes · Files. Edit facts, add contacts, field notes, photos, next actions, change stage, draft a quote, prepare outreach |
+| **Review** | Swipe through the buildings a search found, one card at a time: right = Pursue, left = Pass, middle = Investigate. Only Pursue adds a lead; undo after every choice |
 | **Leads** | Search, filter by stage, sort; add a lead in ten seconds |
-| **Pipeline** | Eight stages (Identified → Won / Lost) as a map, list or board, with totals, win rate and overdue |
-| **Settings** | Your details, services and **your** prices, ready-made solutions, lookups on/off, backup export/import, demo data |
+| **Pipeline** | Your funnel (Lead → Contacted → Meeting → Quote → Scheduled → Completed, or Lost) as a map, list or board, with totals, win rate and overdue |
+| **Settings** | **How much to show** (Simple / More / Everything and single switches), your details, services and **your** prices, ready-made solutions, lookups on/off, backup export/import, demo data |
 
 IAI's three core services come first: **window cleaning**, **facade cleaning** and **inspection**. Roof cleaning, soft washing, 3D mapping, solar-panel cleaning and marketing are listed as add-ons.
 
@@ -46,7 +47,7 @@ sh tests/run-all.sh test-out                             # every suite
 | `tests/fsd1.js` | The vertical slice end to end: demo labels, navigation, one property record, persistence, stage changes, quote approval gate, email on tap only, backup round trip, damaged-save handling |
 | `tests/blocked.js` | If the browser blocks storage (private browsing, an embedded preview) the app still opens with demo data, works for the visit and says changes won't be kept |
 | `tests/files.js` | Photos and files: stored on the phone, shown on the property, left out of a backup unless chosen, restored from one that includes them |
-| `tests/outside.js` | Nothing is sent until lookups are on; only the three OpenStreetMap hosts; private data never leaves; map results are not leads until you add one |
+| `tests/outside.js` | Nothing is sent until lookups are on; only the declared hosts: three OpenStreetMap hosts, plus the backup building server only when the main one is busy (the county test is `tests/county.js`); private data never leaves; map results are not leads until you add one |
 | `tests/layout.js` | 320 px and 390 px wide: no sideways scroll, touch targets ≥ 40 px (pass a folder to save screenshots) |
 
 The outside services are **mocked** in the tests, with invented buildings.
@@ -73,6 +74,7 @@ js/ui.js         dialogs, toasts, navigation, the lookup consent step
 js/work.js       updates, calls, tasks, stages, contacts, quote, email
 js/leads.js      Leads tab + Property Intelligence
 js/territory.js  Territory Map
+js/review.js     Swipe review
 js/dashboard.js  js/pipeline.js  js/settings.js  js/app.js
 tests/           automated checks      docs/   status, data model, review guide
 netlify.toml     static deploy (copies only the app files)

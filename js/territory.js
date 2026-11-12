@@ -65,25 +65,71 @@ function paintCtl(){
 }
 
 /* ---------- Search this area: the exact request first ---------- */
+/* One request to the building search, with manners (the public server asks for this):
+   - after a "too many requests" (429) that server is left alone for 30 seconds, and a new search says so instead of asking again;
+   - a gateway error (502/503/504) gets one more round after a short pause, never a rapid retry;
+   - the main server is asked first. The backup (owner-approved) is asked only when the main one is busy, down or silent;
+   - a server that says it ran out of time (the area is too big) is not asked again, here or at the backup. */
+const OVERPASS_URLS=['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter'];
+let OVERPASS_RETRY_MS=10000, OVERPASS_HOLD_MS=30000;
+const overpassHold={};      /* url -> time (ms) before which it is not asked again */
+let overpassVia='';         /* which host answered the last request */
+async function overpassPost(q){
+  overpassVia=''; let lastErr=null, rate=null;
+  for(let round=0;round<2;round++){
+    let gateway=false, asked=0;
+    for(const url of OVERPASS_URLS){
+      if((overpassHold[url]||0)>Date.now()) continue;
+      asked++;
+      try{
+        const j=await fetchJSON(url,{method:'POST', headers:{'content-type':'application/x-www-form-urlencoded'}, body:'data='+encodeURIComponent(q), ms:60000});
+        /* the server answers 200 with a remark when it ran out of time: that is a failed part, not "nothing found" */
+        if(j && typeof j.remark==='string' && /timed out|out of memory|runtime error/i.test(j.remark)) throw new Error('SERVER-TIMEOUT '+j.remark.slice(0,60));
+        overpassVia=url; return j;
+      }catch(e){
+        lastErr=e; const m=String(e && e.message);
+        if(/SERVER-TIMEOUT/.test(m)) throw e;
+        if(/HTTP 429/.test(m)){ overpassHold[url]=Date.now()+OVERPASS_HOLD_MS; rate=e; }
+        else if(/HTTP (502|503|504)/.test(m)) gateway=true;
+      }
+    }
+    if(!asked){ const left=Math.max(0,Math.ceil((Math.min(...OVERPASS_URLS.map(u=>overpassHold[u]||0))-Date.now())/1000)); throw new Error('HOLD '+left); }
+    if(!(gateway && round===0)) break;     /* only a gateway error earns one more round */
+    await new Promise(r=>setTimeout(r,OVERPASS_RETRY_MS));
+  }
+  throw rate || lastErr || new Error('No answer');
+}
+function searchBtn(text){ const b=$('#cGo'); if(b){ b.disabled=!!text; if(text) b.textContent=text; } }
 async function runSearch(){
   const M=state.map, pin=M.pin; if(!pin){ toast('Tap the map to drop a pin first'); return; }
   if(searchBusy) return;
-  const q=buildQuery(pin.lat, pin.lon, M.radius, M.crit);
-  confirmSend({title:'🔍 Search this area?', intro:'OpenStreetMap’s building data is searched for the place and filters below. Nothing else is sent.', hosts:[HOSTS.overpass],
+  const parts=buildQueries(pin.lat, pin.lon, M.radius, M.crit), q=joinQueries(parts);
+  confirmSend({title:'🔍 Search this area?', intro:'OpenStreetMap’s building data is searched for the place and filters below, as '+parts.length+' gentle requests (the buildings, then airport distances). If the main server is busy, the backup server is asked instead. Nothing else is sent.', hosts:[HOSTS.overpass, HOSTS.overpass2],
     lines:['📍 Center '+pin.lat.toFixed(4)+', '+pin.lon.toFixed(4), '↔ Radius '+esc(radLabel(M.radius)), '🎯 '+esc(critText(M.crit))], payload:q, ok:'Search'}, async text=>{
-    searchBusy=true; const btn=$('#cGo'); if(btn){ btn.disabled=true; btn.textContent='Searching…'; }
+    searchBusy=true; const reqs=splitQueries(text), merged=[], seen=new Set(), failed=[]; let okBuild=0, lastErr=null, usedBackup=false;
     try{
-      const j=await fetchJSON('https://overpass-api.de/api/interpreter',{method:'POST', headers:{'content-type':'application/x-www-form-urlencoded'}, body:'data='+encodeURIComponent(text)});
-      const parsed=parseOverpass(j), kept=parsed.items.filter(c=>keepCand(c,M.crit));
+      for(let i=0;i<reqs.length;i++){
+        searchBtn('Searching '+(i+1)+'/'+reqs.length+'…');
+        try{
+          const j=await overpassPost(reqs[i].q);
+          (j && Array.isArray(j.elements) ? j.elements : []).forEach(el=>{ const k=el.type+el.id; if(!seen.has(k)){ seen.add(k); merged.push(el); } });
+          if(!reqs[i].optional){ okBuild++; if(/private\.coffee/.test(overpassVia)) usedBackup=true; }
+        }catch(e){
+          lastErr=e; failed.push(reqs[i].optional ? 'Airport distances' : reqs[i].label);
+          if(!reqs[i].optional || /HTTP 429|HOLD/.test(String(e && e.message))) break;   /* a refused or failed search stops here: no more asking */
+        }
+      }
+      if(!okBuild){ searchBusy=false; toast('Search failed: '+netMsg(lastErr)); if(state.ui.tab==='map' && MAP) paintCtl(); return; }
+      const parsed=parseOverpass({elements:merged}), kept=parsed.items.filter(c=>keepCand(c,M.crit));
       const top=rankCands(kept,'balanced',pin,M.radius).slice(0,400).map(r=>r.c);
       const label=pin.label || (pin.lat.toFixed(3)+', '+pin.lon.toFixed(3));
-      state.search.last={ts:Date.now(), lat:pin.lat, lon:pin.lon, radius:M.radius, crit:critClean(M.crit), label, total:parsed.items.length, airports:parsed.air.slice(0,20), items:top.map(candClean).filter(Boolean)};
+      state.search.last={ts:Date.now(), lat:pin.lat, lon:pin.lon, radius:M.radius, crit:critClean(M.crit), label, total:parsed.items.length, airports:parsed.air.slice(0,20), items:top.map(candClean).filter(Boolean), partial:failed};
       state.search.runs.unshift({id:uid(), ts:Date.now(), label, lat:pin.lat, lon:pin.lon, radius:M.radius, crit:critClean(M.crit), found:parsed.items.length, kept:kept.length}); state.search.runs=state.search.runs.slice(0,30);
       state.ui.ctlOpen=kept.length===0; save(); searchBusy=false; MSHOW=20;
-      toast(kept.length ? '✓ '+plural(kept.length,'building')+' match, ranked' : 'Nothing matched. Try a wider radius or looser filters.');
+      toast(failed.length ? '⚠ Partly done: '+failed.join(', ')+' did not finish' : usedBackup ? '✓ Done with the backup server (its map data can be a little older): '+plural(kept.length,'building')+' match' : kept.length ? '✓ '+plural(kept.length,'building')+' match, ranked' : 'Nothing matched. Try a wider radius or looser filters.');
       if(state.ui.tab==='map' && state.ui.mapTab==='search' && MAP){ MAP.rows=rowsNow(); mapDraw(); paintCtl(); paintResults(); const r=$('#mapHost'); if(r&&kept.length) r.scrollIntoView({behavior:'smooth',block:'start'}); }
     }catch(e){
-      searchBusy=false; toast('Search failed: '+netMsg(e)); const b2=$('#cGo'); if(b2){ b2.disabled=false; b2.innerHTML=ic('search')+' Search this area'; }
+      searchBusy=false; toast('Search failed: '+netMsg(e)); if(state.ui.tab==='map' && MAP) paintCtl();
     }
   });
 }
@@ -92,22 +138,26 @@ async function runSearch(){
 function paintResults(){
   const box=$('#results'); if(!box) return; const L=state.search.last;
   if(!L){ box.innerHTML='<div class="empty">No search yet. Drop a pin, choose how far and what to look for, then search. The buildings come back here, most worth reaching first.</div>'; return; }
-  const rows=rowsNow(), nb=b=>rows.filter(r=>r.band===b).length;
+  const rows=rowsNow(), nb=b=>rows.filter(r=>r.band===b).length, S=state.settings.show, waiting=reviewDeck().length;
   box.innerHTML='<section class="card"><div class="row-between"><h3>'+plural(rows.length,'Property','Properties')+' found</h3><small class="muted">'+esc(whenLabel(L.ts))+'</small></div>'+
-    '<div class="bandsum"><span class="bpill b-High">'+nb('High')+' High</span><span class="bpill b-Medium">'+nb('Medium')+' Medium</span><span class="bpill b-Lower">'+nb('Lower')+' Lower</span></div>'+
-    '<p class="muted sm">'+esc(L.label)+' · '+esc(radLabel(L.radius))+' · '+plural(L.total,'building')+' on the map, '+L.items.length+' match ('+esc(critText(L.crit))+'). ✨ The order is a suggestion from what the map says. Confirm floors, size and type on site.</p>'+
-    '<div class="lab">Rank by</div><div class="chips scroll" id="lens">'+Object.keys(LENS).map(k=>'<button class="chip'+(state.map.lens===k?' on':'')+'" data-v="'+k+'">'+esc(LENS[k].label)+'</button>').join('')+'</div></section>'+
+    (S.summary
+      ? '<div class="bandsum"><span class="bpill b-High">'+nb('High')+' High</span><span class="bpill b-Medium">'+nb('Medium')+' Medium</span><span class="bpill b-Lower">'+nb('Lower')+' Lower</span></div>'+
+        '<p class="muted sm">'+esc(L.label)+' · '+esc(radLabel(L.radius))+' · '+plural(L.total,'building')+' on the map, '+L.items.length+' match ('+esc(critText(L.crit))+'). ✨ The order is a suggestion from what the map says. Confirm floors, size and type on site.</p>'+
+        '<div class="lab">Rank by</div><div class="chips scroll" id="lens">'+Object.keys(LENS).map(k=>'<button class="chip'+(state.map.lens===k?' on':'')+'" data-v="'+k+'">'+esc(LENS[k].label)+'</button>').join('')+'</div>'
+      : '<p class="muted sm">'+esc(L.label)+' · '+esc(radLabel(L.radius))+'. ✨ Best first, a suggestion from the map. Confirm on site.</p>')+
+    '<div class="btnrow2 rv"><button class="btn" data-act="review-open"'+(waiting?'':' disabled')+'>Swipe through ('+waiting+')</button>'+detailChip()+'</div></section>'+
+    (L.partial && L.partial.length ? '<div class="card warn" id="partialNote"><p class="sm"><b>Not everything was searched.</b> '+esc(L.partial.join(', '))+' did not finish, so some buildings may be missing. Tap Search again to try those parts.</p></div>' : '')+
     (rows.length<8 && !L.crit.unknownLevels ? '<div class="card soft" id="fewHint"><p class="sm">Only buildings with a floor count on the map are shown, and many commercial buildings have none. Tap “Change filters”, turn on “Include buildings with no floor count”, then search again to see them.</p></div>' : '')+
     '<h3 class="sect">Prospects in radius</h3>'+rows.slice(0,MSHOW).map(candCard).join('')+(rows.length>MSHOW?'<button class="btn quiet wide" data-act="more-results">Show more ('+(rows.length-MSHOW)+' left)</button>':'');
   $$('#lens [data-v]',box).forEach(b=>b.addEventListener('click',()=>{ state.map.lens=b.dataset.v; save(); if(MAP){ MAP.rows=rowsNow(); mapDraw(); } paintResults(); }));
 }
 ACT['more-results']=()=>{ MSHOW+=20; paintResults(); };
 function candCard(r){
-  const c=r.c, cat=CATS[c.cat]||CATS.mixed, info=[cat.label, c.levels?plural(c.levels,'floor'):'floors unknown', c.sqft?fmt(c.sqft)+' sq ft':''].filter(Boolean).join(' · ');
+  const c=r.c, S=state.settings.show, cat=CATS[c.cat]||CATS.mixed, info=[cat.label, c.levels?plural(c.levels,'floor'):'floors unknown', c.sqft?fmt(c.sqft)+' sq ft':''].filter(Boolean).join(' · ');
   return '<article class="rcard" data-act="cand-open" data-id="'+esc(c.id)+'" tabindex="0" role="button" aria-label="Research '+esc(c.name||c.addr||'building')+'">'+
-    '<div class="rk b-'+r.band+'">'+r.rank+'</div><div class="rc-main"><h3>'+esc(c.name||c.addr||'Building at '+c.lat.toFixed(4)+', '+c.lon.toFixed(4))+'</h3><p>'+esc(c.addr||'No street address on the map')+'</p>'+
-    '<div class="lc-chips"><span class="chip-s">'+esc(info)+'</span>'+bandPill(r.band)+(r.lead?'<span class="chip-s ok">'+ic('check','tiny')+' In pipeline</span>':'')+'</div>'+
-    '<p class="why1">✨ '+esc(r.why.slice(0,3).join(' · '))+'</p></div>'+
+    '<div class="rk b-'+r.band+'">'+r.rank+'</div><div class="rc-main"><h3>'+esc(c.name||c.addr||'Building at '+c.lat.toFixed(4)+', '+c.lon.toFixed(4))+'</h3>'+(S.addr?'<p>'+esc(c.addr||'No street address on the map')+'</p>':'')+
+    '<div class="lc-chips">'+(S.facts?'<span class="chip-s">'+esc(info)+'</span>':'')+(S.band?bandPill(r.band):'')+(r.lead?'<span class="chip-s ok">'+ic('check','tiny')+' In pipeline</span>':'')+'</div>'+
+    (S.why?'<p class="why1">✨ '+esc(r.why.slice(0,3).join(' · '))+'</p>':'')+'</div>'+
     '<div class="rc-acts"><button class="btn-s" data-act="cand-open" data-id="'+esc(c.id)+'">Research property</button>'+(r.lead?'':'<button class="btn-s prim" data-act="cand-add" data-id="'+esc(c.id)+'">'+ic('plus')+'Add</button>')+'</div></article>';
 }
 function candRow(id){ return rowsNow().find(r=>r.c.id===id)||null; }
@@ -193,7 +243,7 @@ function addrGo(raw, research, o){
   if(!state.settings.lookups.on){ toast('Turn on lookups in Settings first'); return; }
   confirmSend({title: research ? '🔎 Research this address?' : '📍 Find this place?',
     intro: research ? 'The address search finds the place, then the building search looks for the building at that spot.' : 'The address search finds the place on the map.',
-    hosts: research ? [HOSTS.nominatim, HOSTS.overpass] : [HOSTS.nominatim], lines:[], payload:q, editable:true, ok:'Search'}, async text=>{
+    hosts: research ? [HOSTS.nominatim, HOSTS.overpass, HOSTS.overpass2] : [HOSTS.nominatim], lines:[], payload:q, editable:true, ok:'Search'}, async text=>{
     toast('Looking it up…');
     try{
       const res=await geocode(text);
@@ -215,7 +265,7 @@ async function researchAt(pl, o){
   o=o||{}; toast('Finding the building…');
   let cand=null;
   try{
-    const j=await fetchJSON('https://overpass-api.de/api/interpreter',{method:'POST', headers:{'content-type':'application/x-www-form-urlencoded'}, body:'data='+encodeURIComponent(buildQueryAt(pl.lat,pl.lon))});
+    const j=await overpassPost(buildQueryAt(pl.lat,pl.lon));
     const parsed=parseOverpass(j,{keepGeom:true});
     const inside=parsed.items.filter(c=>c._g && pointInRing(c._g, pl.lat, pl.lon)).sort((a,b)=>b.sqft-a.sqft)[0];
     cand = inside || parsed.items.map(c=>({c, d:dist(c.lat,c.lon,pl.lat,pl.lon)})).filter(x=>x.d<=60).sort((a,b)=>a.d-b.d).map(x=>x.c)[0] || null;

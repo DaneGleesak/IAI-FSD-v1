@@ -238,6 +238,32 @@ function buildQuery(lat, lon, r, crit){
   if(!crit.types.length || crit.minLevels>=5) P.push('way["building"]["building:levels"~"'+lv+'"]'+A+';');
   return '[out:json][timeout:25];\n(\n  '+P.join('\n  ')+'\n)->.b;\n.b out geom;\nnwr["aeroway"~"^(aerodrome|heliport)$"](around:'+Math.round(r+16000)+','+lat.toFixed(5)+','+lon.toFixed(5)+');\nout center tags;';
 }
+/* The same search as buildQuery, as TWO polite requests: one for the buildings (every wanted kind in one query,
+   exact tag values so the server can use its index) and one small one for airports. Fewer, lighter requests is
+   what the public server asks for; losing the airport request only loses the airport distance. */
+function buildQueries(lat, lon, r, crit){
+  crit=critClean(crit);
+  const A='(around:'+Math.round(r)+','+lat.toFixed(5)+','+lon.toFixed(5)+')', types=crit.types.length ? crit.types : TYPE_KEYS, lv3=levelsRe(3);
+  const ex=(k,v)=>'["'+k+'"="'+v+'"]', plain=new Set(), tall=new Set(), tour=new Set(), amen=new Set(), P=[];
+  types.forEach(k=>{ const d=TYPES[k]; if(!d) return; d.b.forEach(v=>plain.add(v)); (d.tall||[]).forEach(v=>tall.add(v)); (d.t||[]).forEach(v=>tour.add(v)); (d.a||[]).forEach(v=>amen.add(v)); });
+  plain.forEach(v=>{ P.push('way'+ex('building',v)+A+';'); P.push('relation'+ex('building',v)+A+';'); });
+  tall.forEach(v=>{ ['way','relation'].forEach(w=>P.push(w+ex('building',v)+'["building:levels"~"'+lv3+'"]'+A+';')); });
+  tour.forEach(v=>P.push('way'+ex('tourism',v)+'["building"]'+A+';'));
+  amen.forEach(v=>P.push('way'+ex('amenity',v)+'["building"]'+A+';'));
+  if(!crit.types.length || crit.minLevels>=5) P.push('way["building"]["building:levels"~"'+levelsRe(Math.max(2,crit.minLevels||2))+'"]'+A+';');
+  return [
+    {label:'Buildings', q:'[out:json][timeout:45];\n(\n  '+P.join('\n  ')+'\n)->.b;\n.b out geom;'},
+    {label:'Airports', optional:true, q:'[out:json][timeout:25];\nnwr["aeroway"~"^(aerodrome|heliport)$"](around:'+Math.round(r+16000)+','+lat.toFixed(5)+','+lon.toFixed(5)+');\nout center tags;'}
+  ];
+}
+/* the requests as one block of text (what the owner reads first), and back into requests */
+function joinQueries(parts){ return parts.map((x,i)=>'// ---- request '+(i+1)+' of '+parts.length+': '+x.label+' ----\n'+x.q).join('\n\n'); }
+function splitQueries(text){
+  const bits=String(text).split(/^\/\/ ---- request \d+ of \d+: (.*?) ----$/m), out=[];
+  if(bits.length<3) return [{label:'Buildings', q:String(text).trim()}];
+  for(let i=1;i<bits.length;i+=2){ const q=(bits[i+1]||'').trim(); if(q) out.push({label:bits[i], optional:bits[i]==='Airports', q}); }
+  return out;
+}
 /* the one-building query used when you research an address */
 function buildQueryAt(lat, lon){
   return '[out:json][timeout:20];\n(\n  way["building"](around:45,'+lat.toFixed(5)+','+lon.toFixed(5)+');\n  relation["building"](around:45,'+lat.toFixed(5)+','+lon.toFixed(5)+');\n)->.b;\n.b out geom;\nnwr["aeroway"~"^(aerodrome|heliport)$"](around:16000,'+lat.toFixed(5)+','+lon.toFixed(5)+');\nout center tags;';
@@ -362,6 +388,43 @@ function quoteCalc(b, services, sel, floorFt){
   return {lines, core, extra, coreTotal:sum(core), extraTotal:sum(extra), total:sum(lines), missing:lines.filter(l=>l.amount==null).length, priced:lines.filter(l=>l.amount!=null).length,
     coreAllPriced: core.length>0 && core.every(l=>l.amount!=null), allPriced: lines.length>0 && lines.every(l=>l.amount!=null)};
 }
+/* ---------- a quote from the customer's request: ✨ suggestions read from their own words, nothing applied until ticked ----------
+   Runs on the phone with plain rules. Nothing is sent anywhere, nothing is guessed: every suggestion carries the words it came from. */
+const REQ_WORDS=[
+  ['s-ext1', /\b(windows?|glass|glazing|curtain ?wall)\b/i],
+  ['s-upper', /\b(windows?|glass|glazing|curtain ?wall|high[- ]rise|tall|upper floors?)\b/i],
+  ['s-int1', /\b(interior|inside)\b[^.]{0,40}\b(windows?|glass)\b|\b(windows?|glass)\b[^.]{0,40}\b(interior|inside)\b/i],
+  ['s-facade', /\b(fa[cç]ade|mold|mould|algae|grime|stains?|staining|brick|stucco|siding|exterior walls?|building wash)\b/i],
+  ['s-insp', /\b(inspect\w*|thermal|infrared|leaks?|moisture|heat loss|envelope)\b/i],
+  ['s-roof', /\broof\w*\b/i],
+  ['s-wash', /\b(pressure[- ]?wash\w*|power[- ]?wash\w*|soft[- ]?wash\w*|sidewalks?|walkways?|parking (?:lot|garage|deck)|entrances?|storefronts?|masonry|dumpster pad)\b/i],
+  ['s-map', /\b(3d|mapping|site model|documentation|progress photos?|survey|measurements?)\b/i],
+  ['s-solar', /\bsolar\b|\bpanels?\b/i],
+  ['s-mkt', /\b(marketing|promo\w*|aerial (?:photos?|video)|drone (?:photos?|video)|leasing photos?)\b/i],
+  ['s-plan', /\b(maintenance (?:plan|program|contract)|recurring|contract|monthly|quarterly|annual\w*|yearly|twice a year|semi-?annual\w*|every (?:\d+ )?(?:weeks?|months?|quarters?|years?)|each (?:month|quarter|year))\b/i]
+];
+const REQ_FREQ=[['weekly',/\bweekly\b|\bevery week\b/i],['monthly',/\bmonthly\b|\bevery month\b|\beach month\b/i],['quarterly',/\bquarterly\b|\bevery quarter\b|\bevery 3 months\b|\beach quarter\b/i],
+  ['twice a year',/\btwice a year\b|\bsemi-?annual\w*\b|\bevery 6 months\b|\bevery six months\b/i],['once a year',/\bannual(?:ly)?\b|\byearly\b|\bonce a year\b|\bevery year\b|\beach year\b/i],['one time',/\bone[- ]time\b|\bonce\b|\bjust once\b/i]];
+const REQ_MONTHS='jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?';
+function readRequest(text, services){
+  text=String(text||'').replace(/\s+/g,' ').trim().slice(0,2000); const out={services:[], stories:null, storiesWhy:'', freq:'', freqWhy:'', dates:[]};
+  if(!text) return out;
+  const W={single:1,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12}, m=text.match(/\b(\d{1,2}|single|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)[\s-]*(?:stor(?:y|ies)|floors?|levels?)\b/i);
+  if(m){ const n=/^\d/.test(m[1]) ? parseInt(m[1],10) : W[m[1].toLowerCase()]; if(n>=1 && n<=99){ out.stories=n; out.storiesWhy=m[0]; } }
+  const ids=new Set((services||[]).map(s=>s.id)), nameOf=id=>((services||[]).find(s=>s.id===id)||{}).name||id, hit={};
+  REQ_WORDS.forEach(([id,re])=>{ const x=text.match(re); if(x && ids.has(id)) hit[id]=x[0]; });
+  /* "windows" asks for the exterior lines; the upper-floor line only when the building has floors above the first (or the floors are not known) */
+  if(hit['s-upper'] && out.stories!=null && out.stories<2 && !/\b(high[- ]rise|tall|upper floors?)\b/i.test(text)) delete hit['s-upper'];
+  if(hit['s-int1'] && hit['s-ext1'] && !/\b(exterior|outside|outer)\b/i.test(text)) delete hit['s-ext1'];
+  if(hit['s-solar'] && !/\bsolar\b/i.test(text)) delete hit['s-solar'];
+  Object.keys(hit).forEach(id=>out.services.push({id, name:nameOf(id), why:hit[id]}));
+  for(const [f,re] of REQ_FREQ){ const x=text.match(re); if(x){ out.freq=f; out.freqWhy=x[0]; break; } }
+  const seen=new Set(), add=s=>{ const k=s.toLowerCase(); if(!seen.has(k) && out.dates.length<6){ seen.add(k); out.dates.push(s); } };
+  (text.match(new RegExp('\\b(?:'+REQ_MONTHS+')\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?(?:,?\\s*\\d{4})?','gi'))||[]).forEach(add);
+  (text.match(/\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/g)||[]).forEach(add);
+  (text.match(/\b(?:before|by|after|until|during|in)\s+(?:the\s+)?(?:spring|summer|fall|autumn|winter|grand opening|holidays?|event|conference|season)\b/gi)||[]).forEach(add);
+  return out;
+}
 function lineText(l){
   if(l.amount==null) return '• '+l.name+(l.band?' ('+l.band+')':'')+': '+(l.need==='rate' ? 'rate needed' : l.need ? l.need+' needed' : 'to be priced');
   return '• '+l.name+(l.band?' ('+l.band+')':'')+': '+(l.unit==='flat' ? money(l.amount) : l.qlabel+' @ '+money(l.rate)+' = '+money(l.amount));
@@ -382,3 +445,72 @@ function solutionsFor(playbooks, cat, levels){
   out.sort((a,b)=>b.s-a.s);
   return out.map(x=>x.p);
 }
+
+/* ---------- county parcel records: free public records a county publishes (Cuyahoga first) ----------
+   Only the building's map position is sent. What comes back is labelled "county record" and is never
+   put in the owner fact until the person taps "Use as owner". */
+const COUNTIES={
+  cuyahoga:{name:'Cuyahoga County', host:'gis.cuyahogacounty.gov', box:[41.10,-82.00,41.65,-81.25],
+    layers:[['https://gis.cuyahogacounty.gov/server/rest/services/Open_Data_Parcels/MapServer/1','parcels outside Cleveland'],
+            ['https://gis.cuyahogacounty.gov/server/rest/services/Open_Data_Parcels/MapServer/0','parcels inside Cleveland']]}
+};
+function countyFor(lat, lon){
+  lat=Number(lat); lon=Number(lon); if(!Number.isFinite(lat) || !Number.isFinite(lon)) return '';
+  return Object.keys(COUNTIES).find(k=>{ const b=COUNTIES[k].box; return lat>=b[0] && lat<=b[2] && lon>=b[1] && lon<=b[3]; }) || '';
+}
+function countyQuery(lat, lon){
+  return 'f=json&geometry='+Number(lon).toFixed(6)+','+Number(lat).toFixed(6)+'&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=*&returnGeometry=false&resultRecordCount=10';
+}
+function countyRecClean(r){
+  if(!r || typeof r!=='object') return null;
+  const n=v=>{ v=Number(v); return Number.isFinite(v) && v>0 ? Math.round(v) : null; };
+  const o={pin:str(r.pin,20), owner:str(r.owner,120), mailTo:str(r.mailTo,200), site:str(r.site,120), luc:str(r.luc,6), lucText:str(r.lucText,40), zoning:str(r.zoning,8),
+    comBldgs:n(r.comBldgs), comArea:n(r.comArea), units:n(r.units), resArea:n(r.resArea), saleTs:n(r.saleTs), saleAmt:n(r.saleAmt), taxYear:n(r.taxYear)};
+  return (o.pin || o.owner) ? o : null;
+}
+function parseCounty(json){
+  const fs=(json && Array.isArray(json.features)) ? json.features : [];
+  return fs.slice(0,10).map(f=>{
+    const a={}, src=(f && f.attributes && typeof f.attributes==='object') ? f.attributes : {}; Object.keys(src).forEach(k=>{ a[k.toLowerCase()]=src[k]; });
+    const owner=str(a.deeded_owner,120).trim(), mname=str(a.mail_name,109).trim();
+    const street=[a.mail_addr_street,a.mail_unit].map(x=>str(x,50).trim()).filter(Boolean).join(' '), city=[a.mail_city,a.mail_state].map(x=>str(x,30).trim()).filter(Boolean).join(', ');
+    const mail=[mname && mname.toLowerCase()!==owner.toLowerCase() ? mname : '', street, (city+' '+str(a.mail_zip,10).trim()).trim()].filter(Boolean).join(' · ');
+    return countyRecClean({pin:a.parcelpin||a.parcel_id, owner, mailTo:mail, site:a.par_addr_all, luc:a.tax_luc, lucText:a.tax_luc_description, zoning:a.zoning_code,
+      comBldgs:a.com_bldg_count, comArea:a.total_com_use_area, units:a.com_living_units, resArea:a.total_res_liv_area, saleTs:a.transfer_date, saleAmt:a.sales_amount, taxYear:a.tax_year});
+  }).filter(Boolean);
+}
+
+/* ---------- how much to show: switches that make the screens simpler or fuller ----------
+   [key, group, label, hint, simple, more, everything]. Simple is where a fresh install starts. */
+const DETAIL=[
+  ['addr','cards','Street address','Under each building name',1,1,1],
+  ['facts','cards','Type, floors and size','Hotel · 6 floors · 52,000 sq ft',1,1,1],
+  ['band','cards','High, Medium or Lower','How worth reaching the map says a building is',1,1,1],
+  ['stage','cards','Stage tag','Where a lead is in your pipeline',1,1,1],
+  ['next','cards','Next action','The next thing to do on a lead',1,1,1],
+  ['last','cards','Last contact','When you last spoke or visited',0,1,1],
+  ['value','cards','Estimated value','Only from a quote, or what you typed',0,1,1],
+  ['why','cards','✨ Why it ranks there','One short reason from the map',0,1,1],
+  ['owner','cards','Owner','When you typed one, or took it from the county record',0,0,1],
+  ['summary','results','Search explanation','The counts, the paragraph and “Rank by” under the map',0,1,1],
+  ['outline','review','Building outline','The shape of the building, from the map',1,1,1],
+  ['askWhy','review','Ask why when I pass','One tap to say why. You can skip it',0,0,1],
+  ['kpis','home','Number tiles','Active opportunities, follow-ups, quotes out, projected revenue',0,1,1],
+  ['terr','home','Territory sketch','The dots picture of your last search',0,1,1],
+  ['funnel','home','Pipeline snapshot','Your stages as bars',0,1,1]];
+const DETAIL_KEYS=DETAIL.map(d=>d[0]);
+const DETAIL_GROUPS=[['home','On My Field Day'],['cards','On building cards'],['results','Map results'],['review','Swipe review']];
+const DETAIL_PRESETS=[['simple','Simple',4],['more','More',5],['all','Everything',6]];
+function detailPreset(name){ const p=DETAIL_PRESETS.find(x=>x[0]===name)||DETAIL_PRESETS[0], o={}; DETAIL.forEach(d=>{ o[d[0]]=d[p[2]]===1; }); return o; }
+/* whatever was saved, made safe: a missing or odd switch falls back to Simple */
+function detailClean(x){
+  x=(x && typeof x==='object' && !Array.isArray(x))?x:{}; const o={}, old=DETAIL_KEYS.slice(0,12);
+  /* a save from before the Home switches existed has the first twelve: the new ones follow the preset those twelve match, else Simple */
+  let base=detailPreset('simple'); if(old.every(k=>typeof x[k]==='boolean')){ for(const p of DETAIL_PRESETS){ const q=detailPreset(p[0]); if(old.every(k=>q[k]===x[k])){ base=q; break; } } }
+  DETAIL_KEYS.forEach(k=>{ o[k]=typeof x[k]==='boolean'?x[k]:base[k]; }); return o;
+}
+function detailName(s){ s=detailClean(s); for(const p of DETAIL_PRESETS){ const q=detailPreset(p[0]); if(DETAIL_KEYS.every(k=>q[k]===s[k])) return p[0]; } return 'custom'; }
+
+/* ---------- swipe review: the three choices, and a building's outline as a small picture ---------- */
+const REVIEW_CHOICES=[['pursue','Pursue'],['investigate','Investigate'],['pass','Pass']];
+const PASS_REASONS=['Too small','Wrong type','Not a fit for drone work','Already a client','Too far','Something else'];

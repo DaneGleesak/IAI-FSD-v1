@@ -65,6 +65,41 @@ const packFile = path.join(dir, 'mocktown.json');
   await page.click('[data-act="lookups-on"]'); await page.waitForSelector('#mapHost'); await page.waitForTimeout(300);
   t.ok(await page.isVisible('#ctlSum'), 'with lookups on, the map shows the scan with the filters folded to one line');
   t.ok(/3 mi/.test(await page.textContent('#ctlSum')), 'and the radius reads 3 mi');
+
+  /* the tool on the network, against a local stand-in for the building servers (no real service is touched) */
+  const http = require('http'), { spawn } = require('child_process');
+  const runTool = (args, env) => new Promise(res => { const c = spawn('node', [TOOL, ...args], { env: Object.assign({}, process.env, env, { IAI_WAIT_SCALE: '0.0005' }) }); let o = '', e = ''; c.stdout.on('data', d => o += d); c.stderr.on('data', d => e += d); c.on('close', code => res({ code, o, e })); });
+  const mock = handler => new Promise(res => { const log = []; const srv = http.createServer((rq, rs) => { let b = ''; rq.on('data', d => b += d); rq.on('end', () => { const q = decodeURIComponent(b.replace(/^data=/, '').replace(/\+/g, ' ')); log.push({ path: rq.url, q }); const h = handler(rq.url, q, log.length); if (h && h.status) { rs.writeHead(h.status); return rs.end('busy'); } rs.writeHead(200, { 'content-type': 'application/json' }); rs.end(JSON.stringify((h && h.json) || fixture)); }); }); srv.listen(0, '127.0.0.1', () => res({ srv, log, base: 'http://127.0.0.1:' + srv.address().port })); });
+  const envOf = m => ({ IAI_OVERPASS: m.base + '/main,' + m.base + '/backup' });
+  const base = ['--lat', String(LAT), '--lon', String(LON), '--label', 'Mocktown', '--miles', '3'];
+
+  /* the main server is busy: the backup answers, and the tool is two requests, not one per kind */
+  let m = await mock(u => u === '/main' ? { status: 429 } : null);
+  let r = await runTool([...base, '--out', path.join(dir, 'a.json')], envOf(m)); m.srv.close();
+  t.eq(r.code, 0, 'with the main server busy, the scan still finishes'); t.ok(m.log[0].path === '/main', 'the main server is asked first');
+  t.ok(m.log.some(x => x.path === '/backup'), 'the backup server answered'); t.eq(m.log.filter(x => x.path === '/main').length <= 2, true, 'and the main one was not pushed again and again');
+  t.ok(m.log.some(x => /aeroway/.test(x.q)) && m.log.some(x => /"building"="hotel"/.test(x.q)), 'it asks for the buildings and for the airports');
+  t.eq(JSON.parse(fs.readFileSync(path.join(dir, 'a.json'), 'utf8')).items.length, 4, 'the pack has the four buildings');
+
+  /* a server that runs out of time: said plainly, and nobody is asked again */
+  m = await mock(() => ({ json: { elements: [], remark: 'runtime error: Query timed out in "query" at line 3 after 46 seconds.' } }));
+  r = await runTool([...base, '--out', path.join(dir, 'b.json')], envOf(m)); m.srv.close();
+  t.ok(r.code !== 0 && /too big for one request/.test(r.e), 'a timed-out search says the area is too big and to use a smaller --miles'); t.eq(m.log.length, 1, 'and it was asked once: no retry, no backup');
+
+  /* both servers say 429 for ever: it gives up with the reason instead of hammering */
+  m = await mock(() => ({ status: 429 }));
+  r = await runTool([...base, '--out', path.join(dir, 'c.json')], envOf(m)); m.srv.close();
+  t.ok(r.code !== 0 && /429/.test(r.e), 'if every server keeps saying 429 it stops and says so'); t.ok(m.log.length <= 8, 'after only a few polite tries ('+m.log.length+')');
+
+  /* a sweep: many small circles over a box, each asked once, the buildings joined and counted once */
+  m = await mock(() => null);
+  r = await runTool(['--box', '39.90,-83.10,40.00,-82.90', '--miles', '2', '--label', 'Mock sweep', '--out', path.join(dir, 'd.json')], envOf(m)); m.srv.close();
+  const sw = JSON.parse(fs.readFileSync(path.join(dir, 'd.json'), 'utf8'));
+  t.eq(r.code, 0, 'a sweep over a box finishes'); t.ok(m.log.length > 4 && m.log.filter(x => !/aeroway/.test(x.q)).length === m.log.length - 1, 'one building request per circle, then one airport request ('+m.log.length+')');
+  t.eq(sw.items.length, 4, 'a building seen in several circles is listed once'); t.ok(sw.radius <= 32000 && sw.center.label === 'Mock sweep', 'the pack covers the box');
+  r = await runTool(['--box', '39,-84,41,-82', '--miles', '1', '--out', path.join(dir, 'e.json')], envOf(await mock(() => null)));
+  t.ok(r.code !== 0 && /limit is 80/.test(r.e), 'a box that would need too many circles is refused before anything is sent');
+  r = await runTool(['--box', '40,-83,39,-82', '--out', path.join(dir, 'f.json')], {}); t.ok(r.code !== 0 && /south,west,north,east/.test(r.e), 'a box the wrong way round is refused');
   t.eq(T.errors, [], 'no page errors');
   await T.close(); t.done();
 })().catch(e => { console.error(e); process.exit(1); });
