@@ -44,6 +44,6 @@ The card shows what the map says (outline, type, floors, size) and the ✨ reaso
 - **Sharing between reps** and **local AI** wait for the Mac mini lane decisions.
 
 ## Decisions for the owner
-1. **Pipeline stage names.** The app uses Identified · Researching · Contacted · Qualified · Proposal · Negotiation · Won · Lost. Your own flow may differ. Say the order you actually use and the app will follow it. Review does not depend on it: Pursue starts a lead at the first stage.
+1. ~~**Pipeline stage names.**~~ Decided: the app now uses the owner's funnel (Lead · Contacted · Meeting · Quote · Scheduled · Completed · Lost). Pursue starts a lead at Lead.
 2. **County sweep:** Mac mini overnight, or county parcel records on the phone, or both.
 3. **City sweep size:** which cities first, and how many buildings is "too many" for one sweep.

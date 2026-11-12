@@ -15,7 +15,7 @@ Tap a place on the map, say how far to look and what kind of building, and the a
 | **Property Intelligence** | One building in depth: Overview · Contacts · Services · Notes · Files. Edit facts, add contacts, field notes, photos, next actions, change stage, draft a quote, prepare outreach |
 | **Review** | Swipe through the buildings a search found, one card at a time: right = Pursue, left = Pass, middle = Investigate. Only Pursue adds a lead; undo after every choice |
 | **Leads** | Search, filter by stage, sort; add a lead in ten seconds |
-| **Pipeline** | Eight stages (Identified → Won / Lost) as a map, list or board, with totals, win rate and overdue |
+| **Pipeline** | Your funnel (Lead → Contacted → Meeting → Quote → Scheduled → Completed, or Lost) as a map, list or board, with totals, win rate and overdue |
 | **Settings** | **How much to show** (Simple / More / Everything and single switches), your details, services and **your** prices, ready-made solutions, lookups on/off, backup export/import, demo data |
 
 IAI's three core services come first: **window cleaning**, **facade cleaning** and **inspection**. Roof cleaning, soft washing, 3D mapping, solar-panel cleaning and marketing are listed as add-ons.

@@ -22,8 +22,8 @@ const t = suite('how much to show');
   await page.evaluate(()=>show('settings')); await page.waitForSelector('#detailBox');
   t.ok(/How much to show/.test(await txt('#main')), 'Settings has a How much to show panel');
   t.eq(await page.$eval('#detailBox .seg .on', b=>b.textContent), 'Simple', 'set to Simple');
-  t.eq(await page.$$eval('#detailBox input[type=checkbox]', e=>e.length), 12, 'twelve switches, in three groups');
-  t.eq(await page.$$eval('#detailBox .lab', e=>e.map(x=>x.textContent)), ['On building cards','Map results','Swipe review'], 'grouped by where they show');
+  t.eq(await page.$$eval('#detailBox input[type=checkbox]', e=>e.length), 15, 'fifteen switches, in four groups');
+  t.eq(await page.$$eval('#detailBox .lab', e=>e.map(x=>x.textContent)), ['On My Field Day','On building cards','Map results','Swipe review'], 'grouped by where they show');
 
   /* Simple leads page: the essentials only */
   let L = await leadsPage();
@@ -54,7 +54,7 @@ const t = suite('how much to show');
 
   /* the Show button opens the same panel from the busy screens */
   await page.click('#main [data-act="detail-open"]'); await page.waitForSelector('#dlg #detailBox');
-  t.eq(await page.$$eval('#dlg input[type=checkbox]', e=>e.length), 12, 'the Show button opens the same switches');
+  t.eq(await page.$$eval('#dlg input[type=checkbox]', e=>e.length), 15, 'the Show button opens the same switches');
   await page.click('#dlg [data-act="detail-preset"][data-p="simple"]'); await page.waitForTimeout(80);
   await page.click('#dlg [data-act="dlg-close"]'); await page.waitForTimeout(150);
   L = await txt('#lList'); t.ok(/100 Example Ave/.test(L) && !/Est\. value/i.test(L), 'Done repaints the page with the new choice');
@@ -90,6 +90,9 @@ const t = suite('how much to show');
   const old = await page.evaluate(()=>({a:normalize({properties:[]}).settings.show, b:normalize({properties:[], settings:{show:{why:true, value:'yes'}}}).settings.show}));
   t.eq(old.a, await page.evaluate(()=>detailPreset('simple')), 'a save from before this feature opens on Simple');
   t.ok(old.b.why===true && old.b.value===false, 'a partly-filled setting keeps what is valid and defaults the rest');
+  const mig = await page.evaluate(()=>{ const f=n=>{ const p=detailPreset(n), o={}; Object.keys(p).slice(0,12).forEach(k=>o[k]=p[k]); return normalize({properties:[], settings:{show:o}}).settings.show; }; return {more:f('more'), simple:f('simple'), all:f('all')}; });
+  t.ok(mig.more.kpis && mig.more.terr && mig.more.funnel, 'a save that was on More keeps the Home extras it would have had');
+  t.ok(!mig.simple.kpis && !mig.simple.terr && !mig.simple.funnel, 'a save on Simple stays simple on Home'); t.ok(mig.all.kpis, 'and Everything stays everything');
 
   /* phone width, with everything on */
   await page.evaluate(()=>{ state.settings.show=detailPreset('all'); save(); });

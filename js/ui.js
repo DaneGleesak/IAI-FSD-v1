@@ -118,7 +118,7 @@ function leadCard(l, o){
 }
 ACT['lead-open']=el=>openLead(el.dataset.id);
 document.addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ') && e.target.matches && e.target.matches('.lcard')){ e.preventDefault(); openLead(e.target.dataset.id); } });
-/* the eight stages as bars: counts, dollars from the lead's value, nothing invented */
+/* the stages as bars: counts, dollars from the lead's value, nothing invented */
 function funnelHtml(leads, o){
   o=o||{}; const rows=STAGES.map(s=>{ const L=leads.filter(l=>l.stage===s); return {s, n:L.length, val:L.reduce((t,l)=>t+(leadValue(l)||0),0)}; });
   const max=Math.max(1,...rows.map(r=>r.n));
@@ -127,7 +127,7 @@ function funnelHtml(leads, o){
 ACT['pipe-stage']=el=>{ state.ui.pipeView='list'; state.ui.pipeFilter='all'; state.ui.closed[el.dataset.s]=false; save(); show('pipe'); setTimeout(()=>{ const t=$('#acc-'+el.dataset.s.toLowerCase()); if(t) t.scrollIntoView({block:'start'}); },30); };
 
 /* ---------- the shell: top bar, tabs, sheet ---------- */
-const TABS=[['dash','Dashboard'],['map','Map'],['leads','Leads'],['pipe','Pipeline'],['settings','Settings']];
+const TABS=[['dash','Today'],['map','Map'],['leads','Leads'],['pipe','Pipeline'],['settings','Settings']];
 function paintNav(){
   const cur=state.ui.tab==='review'?'map':state.ui.tab;
   $('#nav').innerHTML=TABS.map(([k,l])=>'<button type="button" data-act="tab" data-tab="'+k+'" aria-label="'+l+'"'+(cur===k?' class="on" aria-current="page"':'')+'>'+ic(k)+'<span>'+l+'</span></button>').join('');

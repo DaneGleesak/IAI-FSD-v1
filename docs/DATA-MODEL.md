@@ -18,7 +18,7 @@ id, name, addr, lat, lon, cat            identity and place (cat: office, hotel,
 src       'map' | 'address' | 'manual' | 'demo'
 demo      true on invented demonstration data
 osm       OpenStreetMap id (so a building is never added twice)
-stage     Identified · Researching · Contacted · Qualified · Proposal · Negotiation · Won · Lost
+stage     Lead · Contacted · Meeting · Quote · Scheduled · Completed · Lost  (the owner's own funnel; open = the first five, wins = Scheduled + Completed). Saves and backups made with the earlier eight names are renamed on load by `stageName()`: Identified/Researching → Lead, Qualified → Meeting, Proposal/Negotiation → Quote, Won → Scheduled; lead stage, stage-change history and the remembered Pipeline view are all renamed, nothing is dropped.
 band, prio, why[]   ranking: High/Medium/Lower and the plain reasons (✨ inference); prio is the owner's override
 bld       {levels, height, sqft, perimFt, glass, op(opening hours text), web, phone, email, airMi, airName, approx, outline[[lat,lon]], checked, src}
           map-derived numbers are estimates with a source; checked=true once the owner confirms them

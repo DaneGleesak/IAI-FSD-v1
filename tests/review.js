@@ -36,7 +36,7 @@ const t = suite('swipe review');
   /* Pursue by button makes a lead, with an undo that sits clear of the buttons */
   await page.click('.rv-btns .pur'); await page.waitForSelector('#toast.show');
   let L = await leads(); t.eq(L.length, 1, 'Pursue adds one lead');
-  t.eq(L[0].osm, 'w901', 'it is the building that was shown'); t.eq(L[0].stage, 'Identified', 'at the first pipeline stage');
+  t.eq(L[0].osm, 'w901', 'it is the building that was shown'); t.eq(L[0].stage, 'Lead', 'at the first pipeline stage');
   t.ok(L[0].events.some(e=>/Chosen in Review: Pursue/.test(e.text)), 'the lead says how it got there');
   t.ok(L[0].events.every(e=>e.type!=='touch'), 'a swipe is not counted as a contact');
   t.eq(await deckN(), 4, 'the deck moves on'); t.eq(await cardName(), 'Mock Building 2', 'to the next building');

@@ -4,7 +4,7 @@ Direction from the owner (design mockups as the visual reference, tailored to IA
 
 ## Order the owner picked
 1. ✅ **Map-first search**: results right under the map, filters fold to one line, one-tap hotels / apartments / offices / medical, 3 mi radius. Also ✅ **Mac mini market scan** (`docs/MAC-MINI.md`).
-2. ⬜ **My Field Day home**: today's route (stops, miles, time), Call / Navigate / Voice Note / Photo, follow-ups due, pipeline snapshot, "Scan for new opportunities".
+2. ✅ **My Field Day home** (Simple by default): today at a glance, next stop with Call / Navigate / Note / Photo, today's route with straight-line miles, follow-ups due, "Scan for new opportunities". The number tiles, territory sketch and pipeline snapshot are switches. Not built: drive time (needs a routing service) and voice notes.
 3. ⬜ **Quote builder by service**: per-service lines from the rates the rep typed, with a **quote from the request** step: the rep pastes or types what the customer asked for, the app suggests scope (services, floors, frequency, dates) as ✨ proposals the rep accepts, and the draft still needs approval.
 
 ## Added since

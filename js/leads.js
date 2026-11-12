@@ -106,10 +106,10 @@ function paintSheet(){
   const verified=verifLabel(l);
   let body='';
   if(tab==='overview') body=piOverview(l,prev); else if(tab==='contacts') body=piContacts(l,prev); else if(tab==='services') body=piServices(l,prev); else if(tab==='notes') body=piNotes(l,prev); else body=piFiles(l,prev);
-  const nextI=OPEN.indexOf(l.stage), nextS=nextI>=0 ? (nextI<OPEN.length-1 ? OPEN[nextI+1] : 'Won') : '';
+  const nextI=FLOW.indexOf(l.stage), nextS=nextI>=0 && nextI<FLOW.length-1 ? FLOW[nextI+1] : '';
   const actions = prev ? '<button class="btn quiet" data-act="pi-outreach">'+ic('mail')+'Prepare outreach</button><button class="btn quiet" data-act="pi-quote">'+ic('quote')+'Draft quote</button><button class="btn" data-act="pi-add">'+ic('plus')+'Add to pipeline</button>'
     : '<button class="btn quiet" data-act="mail-open" data-id="'+esc(l.id)+'">'+ic('mail')+'Prepare outreach</button><button class="btn quiet" data-act="quote-open" data-id="'+esc(l.id)+'">'+ic('quote')+'Draft quote</button>'+
-      (nextS ? '<button class="btn" data-act="stage-next" data-id="'+esc(l.id)+'" data-d="1">'+(nextS==='Won'?'Mark won':'Move to '+esc(nextS))+'</button>' : '<button class="btn" data-act="stage-set" data-id="'+esc(l.id)+'">Reopen</button>');
+      (nextS ? '<button class="btn" data-act="stage-next" data-id="'+esc(l.id)+'" data-d="1">'+(nextS==='Completed'?'Mark completed':'Move to '+esc(nextS))+'</button>' : '<button class="btn" data-act="stage-set" data-id="'+esc(l.id)+'">Reopen</button>');
   s.innerHTML='<div class="sh-bar"><button class="iconbtn" data-act="back" aria-label="Back">'+ic('back')+'</button><div class="sh-t"><small>Property Intelligence</small></div>'+(prev?'':'<button class="iconbtn" data-act="pi-menu" aria-label="More">'+ic('dots')+'</button>')+'</div>'+
     hero+
     '<div class="sh-id"><h2>'+esc(leadName(l))+'</h2><p>'+esc(l.addr||'No street address yet')+'</p><div class="chips">'+

@@ -457,13 +457,21 @@ const DETAIL=[
   ['owner','cards','Owner','When you typed one, or took it from the county record',0,0,1],
   ['summary','results','Search explanation','The counts, the paragraph and “Rank by” under the map',0,1,1],
   ['outline','review','Building outline','The shape of the building, from the map',1,1,1],
-  ['askWhy','review','Ask why when I pass','One tap to say why. You can skip it',0,0,1]];
+  ['askWhy','review','Ask why when I pass','One tap to say why. You can skip it',0,0,1],
+  ['kpis','home','Number tiles','Active opportunities, follow-ups, quotes out, projected revenue',0,1,1],
+  ['terr','home','Territory sketch','The dots picture of your last search',0,1,1],
+  ['funnel','home','Pipeline snapshot','Your stages as bars',0,1,1]];
 const DETAIL_KEYS=DETAIL.map(d=>d[0]);
-const DETAIL_GROUPS=[['cards','On building cards'],['results','Map results'],['review','Swipe review']];
+const DETAIL_GROUPS=[['home','On My Field Day'],['cards','On building cards'],['results','Map results'],['review','Swipe review']];
 const DETAIL_PRESETS=[['simple','Simple',4],['more','More',5],['all','Everything',6]];
 function detailPreset(name){ const p=DETAIL_PRESETS.find(x=>x[0]===name)||DETAIL_PRESETS[0], o={}; DETAIL.forEach(d=>{ o[d[0]]=d[p[2]]===1; }); return o; }
 /* whatever was saved, made safe: a missing or odd switch falls back to Simple */
-function detailClean(x){ const base=detailPreset('simple'), o={}; x=(x && typeof x==='object' && !Array.isArray(x))?x:{}; DETAIL_KEYS.forEach(k=>{ o[k]=typeof x[k]==='boolean'?x[k]:base[k]; }); return o; }
+function detailClean(x){
+  x=(x && typeof x==='object' && !Array.isArray(x))?x:{}; const o={}, old=DETAIL_KEYS.slice(0,12);
+  /* a save from before the Home switches existed has the first twelve: the new ones follow the preset those twelve match, else Simple */
+  let base=detailPreset('simple'); if(old.every(k=>typeof x[k]==='boolean')){ for(const p of DETAIL_PRESETS){ const q=detailPreset(p[0]); if(old.every(k=>q[k]===x[k])){ base=q; break; } } }
+  DETAIL_KEYS.forEach(k=>{ o[k]=typeof x[k]==='boolean'?x[k]:base[k]; }); return o;
+}
 function detailName(s){ s=detailClean(s); for(const p of DETAIL_PRESETS){ const q=detailPreset(p[0]); if(DETAIL_KEYS.every(k=>q[k]===s[k])) return p[0]; } return 'custom'; }
 
 /* ---------- swipe review: the three choices, and a building's outline as a small picture ---------- */

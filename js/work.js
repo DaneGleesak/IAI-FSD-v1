@@ -92,9 +92,9 @@ function stageDlg(l){
   });
 }
 function moveStage(l, dir){
-  const i=OPEN.indexOf(l.stage); if(i<0) return;
-  const j=i+dir; if(j<0 || j>=OPEN.length) return;
-  const from=l.stage; setStage(l,OPEN[j]); afterChange(); toast('Moved to '+OPEN[j], {undo:()=>{ setStage(l,from,{text:'undo'}); afterChange(); }});
+  const i=FLOW.indexOf(l.stage); if(i<0) return;
+  const j=i+dir; if(j<0 || j>=FLOW.length) return;
+  const from=l.stage; setStage(l,FLOW[j]); afterChange(); toast('Moved to '+FLOW[j], {undo:()=>{ setStage(l,from,{text:'undo'}); afterChange(); }});
 }
 ACT['stage-next']=el=>{ const l=leadOr(el.dataset.id); if(l) moveStage(l, Number(el.dataset.d)||1); };
 
@@ -335,7 +335,7 @@ function emailPaint(){
     '<input class="in" id="eSub" maxlength="200" value="'+esc(E.subject)+'" aria-label="Subject"><textarea class="ta" id="eBody" rows="12" aria-label="Message">'+esc(E.body)+'</textarea>'+
     (l.demo?'<div class="warn">Demonstration property: this draft is for practice, so opening it in Mail is switched off.</div>':'')+
     (missing.length?'<div class="warn">Add '+esc(missing.join(', '))+' so the email is complete. US commercial email should carry your mailing address and a way to say no. <button type="button" class="chip" id="eSet">Add my details</button></div>':'')+
-    (E.sent ? '<div class="line">✓ Logged as emailed'+(E.sent.quoted?' and moved to Proposal':'')+'. <button type="button" class="chip" id="eUndo">Undo</button></div><div class="lab sm">Follow up in</div>'+chipRow('eF',FOLLOW,E.follow==null?'':E.follow)
+    (E.sent ? '<div class="line">✓ Logged as emailed'+(E.sent.quoted?' and moved to Quote':'')+'. <button type="button" class="chip" id="eUndo">Undo</button></div><div class="lab sm">Follow up in</div>'+chipRow('eF',FOLLOW,E.follow==null?'':E.follow)
     : E.opened ? '<div class="line">Back from Mail? Only log it if you sent it.</div><div class="chips"><button class="btn" id="eSent">✓ I sent it</button><button class="chip" id="eNot">Not sent</button></div>'
     : '<div class="chips"><button class="btn" id="eOpen"'+(E.to&&!l.demo?'':' disabled')+'>Open in Mail</button><button class="chip" id="eCopy">📋 Copy</button></div>')+
     '<div class="actions"><button class="btn quiet" data-act="dlg-close">Close</button></div>', {cls:'tall', onClose:()=>{ if(!E) return; save(); }});
@@ -357,12 +357,12 @@ function emailPaint(){
 }
 /* the only place a mail link is followed */
 function openMail(h){ window.location.href=h; }
-/* a tap on "I sent it" is the only thing that logs it. A first email moves a new lead to Contacted; with a quote it moves to Proposal. Undo puts it back. */
+/* a tap on "I sent it" is the only thing that logs it. A first email moves a new lead to Contacted; with a quote it moves to Quote. Undo puts it back. */
 function emailLogSent(){
   const l=E.l, snap={ev:l.events.length, stage:l.stage, taskId:null};
   touchLead(l,'email',E.subject);
-  const quoted=E.withQuote && !!approvedQuote(l) && !['Won','Lost'].includes(l.stage);
-  if(quoted && l.stage!=='Proposal') setStage(l,'Proposal');
+  const quoted=E.withQuote && !!approvedQuote(l) && ['Lead','Contacted','Meeting','Quote'].includes(l.stage);
+  if(quoted && l.stage!=='Quote') setStage(l,'Quote');
   if(E.to && !l.contacts.some(c=>c.email===E.to)) l.contacts.push({id:uid(), name:'', title:'', email:E.to, phone:'', role:'decision', conf:'', src:'You typed it'});
   save(); E.sent={snap, quoted}; E.follow=null; toast('✓ Logged: emailed '+leadName(l));
 }

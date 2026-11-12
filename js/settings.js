@@ -22,7 +22,7 @@ function viewSettings(m){
       S.playbooks.map(p=>'<button class="prow" data-act="pb-open" data-p="'+esc(p.id)+'"><b>'+esc(p.name)+'</b><small>'+esc(p.when)+'</small></button>').join('')+'</section>'+
     '<section class="card"><h3>Demonstration data</h3><p class="muted sm">Invented example properties, always labelled DEMO DATA, for learning the app. They are separate from real leads and one tap to clear.</p>'+
       '<div class="chips">'+(hasDemo()?'<button class="btn quiet" data-act="demo-clear">Clear demo data</button>':'<button class="btn quiet" data-act="demo-load">Load demo data</button>')+'</div></section>'+
-    '<section class="card"><h3>Backup</h3><p class="muted sm">Everything lives only on this phone. Export a copy now and then. Photos and files are added only if you choose.</p>'+
+    '<section class="card"><h3>Backup</h3><p class="muted sm">Everything lives only on this phone. Save a copy now and then (to Files, iCloud Drive or AirDrop). Photos and files are added only if you choose.</p><p class="sm" id="lastBackup"><b>Last backup:</b> '+(state.backup.last?esc(whenLabel(state.backup.last)):'never')+'</p>'+
       '<div class="chips"><button class="btn" data-act="export" data-f="0">Export backup</button><button class="btn quiet" data-act="export" data-f="1">Export with photos</button><button class="btn quiet" data-act="import">Import backup</button></div></section>'+
     '<section class="card"><h3>About</h3>'+kv('App',esc(APP_NAME))+kv('Version',esc(APP_VER))+'<p class="muted sm">Private: no account, no tracking, no cookies. Quotes and emails are drafts you approve. The app sends no email. Building facts come from volunteer-mapped OpenStreetMap data and are estimates to confirm on site.</p>'+
       '<p class="muted sm">To install: in Safari tap Share, then Add to Home Screen.</p>'+
@@ -44,13 +44,25 @@ ACT['pb-open']=el=>{
     $('#pbOk',e).addEventListener('click',()=>{ p.name=$('#pbN',e).value.trim()||p.name; p.when=$('#pbW',e).value.trim(); p.solution=$('#pbS',e).value.trim(); p.pitch=$('#pbP',e).value.trim(); save(); closeDlg(); toast('✓ Saved'); refresh(); });
   });
 };
-ACT['export']=async el=>{
-  toast('Preparing your backup…');
+/* One tap: the phone's share sheet (Save to Files, AirDrop, iCloud Drive, Mail) when it has one, else a download.
+   The "last backup" date moves only when the backup really went somewhere. */
+async function saveBackup(withFiles){
+  const prev=state.backup.last; state.backup.last=Date.now();
   try{
-    const text=await exportData(el.dataset.f==='1'), blob=new Blob([text],{type:'application/json'}), u=URL.createObjectURL(blob), a=document.createElement('a');
-    a.href=u; a.download='iai-field-sales-backup-'+todayStr()+'.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),4000); toast('✓ Backup ready');
-  }catch(e){ toast('Couldn’t make the backup'); }
-};
+    const text=await exportData(withFiles), name='iai-field-sales-backup-'+todayStr()+'.json';
+    const file=window.File ? new File([text], name, {type:'application/json'}) : null;
+    if(file && navigator.canShare && navigator.canShare({files:[file]})){
+      try{ await navigator.share({files:[file], title:'IAI Field Sales backup'}); save(); toast('✓ Backup saved'); return true; }
+      catch(e){ if(e && e.name==='AbortError'){ state.backup.last=prev; return false; } }   /* anything else: fall back to a download */
+    }
+    const blob=new Blob([text],{type:'application/json'}), u=URL.createObjectURL(blob), a=document.createElement('a');
+    a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),4000);
+    save(); toast('✓ Backup ready'); return true;
+  }catch(e){ state.backup.last=prev; toast('Couldn’t make the backup'); return false; }
+}
+ACT['export']=async el=>{ toast('Preparing your backup…'); if(await saveBackup(el.dataset.f==='1')) refresh(); };
+ACT['backup-now']=async()=>{ toast('Preparing your backup…'); if(await saveBackup(false)) refresh(); };
+ACT['backup-later']=()=>{ state.backup.snooze=Date.now()+3*864e5; save(); refresh(); };
 ACT['import']=()=>{
   const inp=document.createElement('input'); inp.type='file'; inp.accept='application/json,.json'; inp.style.display='none';
   inp.addEventListener('change',async()=>{

@@ -16,7 +16,7 @@ const candName=c=>c.name||c.addr||('Building at '+c.lat.toFixed(4)+', '+c.lon.to
 const reducedMotion=()=>!!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 /* a lead made by a swipe can be taken back only while nothing has been done to it */
 function leadFresh(l){
-  return !!l && l.stage==='Identified' && !l.notes.length && !l.tasks.length && !l.quotes.length && !l.fileIds.length && l.estValue==null && l.contacts.length<=1 && l.events.length<=2;
+  return !!l && l.stage==='Lead' && !l.notes.length && !l.tasks.length && !l.quotes.length && !l.fileIds.length && l.estValue==null && l.contacts.length<=1 && l.events.length<=2;
 }
 
 function reviewDecide(id, d){
