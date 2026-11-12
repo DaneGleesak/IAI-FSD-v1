@@ -65,37 +65,59 @@ function paintCtl(){
 }
 
 /* ---------- Search this area: the exact request first ---------- */
-/* one request to the building search. A busy server (429) or a gateway timeout gets one more try after a pause. */
-let OVERPASS_RETRY_MS=6000;
+/* One request to the building search, with manners (the public server asks for this):
+   - after a "too many requests" (429) that server is left alone for 30 seconds, and a new search says so instead of asking again;
+   - a gateway error (502/503/504) gets one more round after a short pause, never a rapid retry;
+   - the main server is asked first. The backup (owner-approved) is asked only when the main one is busy, down or silent;
+   - a server that says it ran out of time (the area is too big) is not asked again, here or at the backup. */
+const OVERPASS_URLS=['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter'];
+let OVERPASS_RETRY_MS=10000, OVERPASS_HOLD_MS=30000;
+const overpassHold={};      /* url -> time (ms) before which it is not asked again */
+let overpassVia='';         /* which host answered the last request */
 async function overpassPost(q){
-  for(let a=0;;a++){
-    try{
-      const j=await fetchJSON('https://overpass-api.de/api/interpreter',{method:'POST', headers:{'content-type':'application/x-www-form-urlencoded'}, body:'data='+encodeURIComponent(q), ms:60000});
-      /* the server answers 200 with a remark when it ran out of time: that is a failed part, not "nothing found" */
-      if(j && typeof j.remark==='string' && /timed out|out of memory|runtime error/i.test(j.remark)) throw new Error('SERVER-TIMEOUT '+j.remark.slice(0,60));
-      return j;
-    }catch(e){
-      if(a>=1 || !/HTTP (429|502|503|504)/.test(String(e && e.message))) throw e;
-      await new Promise(r=>setTimeout(r,OVERPASS_RETRY_MS));
+  overpassVia=''; let lastErr=null, rate=null;
+  for(let round=0;round<2;round++){
+    let gateway=false, asked=0;
+    for(const url of OVERPASS_URLS){
+      if((overpassHold[url]||0)>Date.now()) continue;
+      asked++;
+      try{
+        const j=await fetchJSON(url,{method:'POST', headers:{'content-type':'application/x-www-form-urlencoded'}, body:'data='+encodeURIComponent(q), ms:60000});
+        /* the server answers 200 with a remark when it ran out of time: that is a failed part, not "nothing found" */
+        if(j && typeof j.remark==='string' && /timed out|out of memory|runtime error/i.test(j.remark)) throw new Error('SERVER-TIMEOUT '+j.remark.slice(0,60));
+        overpassVia=url; return j;
+      }catch(e){
+        lastErr=e; const m=String(e && e.message);
+        if(/SERVER-TIMEOUT/.test(m)) throw e;
+        if(/HTTP 429/.test(m)){ overpassHold[url]=Date.now()+OVERPASS_HOLD_MS; rate=e; }
+        else if(/HTTP (502|503|504)/.test(m)) gateway=true;
+      }
     }
+    if(!asked){ const left=Math.max(0,Math.ceil((Math.min(...OVERPASS_URLS.map(u=>overpassHold[u]||0))-Date.now())/1000)); throw new Error('HOLD '+left); }
+    if(!(gateway && round===0)) break;     /* only a gateway error earns one more round */
+    await new Promise(r=>setTimeout(r,OVERPASS_RETRY_MS));
   }
+  throw rate || lastErr || new Error('No answer');
 }
 function searchBtn(text){ const b=$('#cGo'); if(b){ b.disabled=!!text; if(text) b.textContent=text; } }
 async function runSearch(){
   const M=state.map, pin=M.pin; if(!pin){ toast('Tap the map to drop a pin first'); return; }
   if(searchBusy) return;
   const parts=buildQueries(pin.lat, pin.lon, M.radius, M.crit), q=joinQueries(parts);
-  confirmSend({title:'🔍 Search this area?', intro:'OpenStreetMap’s building data is searched for the place and filters below, as '+parts.length+' small requests (one for each kind of building), so a busy day costs one part and not everything. Nothing else is sent.', hosts:[HOSTS.overpass],
+  confirmSend({title:'🔍 Search this area?', intro:'OpenStreetMap’s building data is searched for the place and filters below, as '+parts.length+' gentle requests (the buildings, then airport distances). If the main server is busy, the backup server is asked instead. Nothing else is sent.', hosts:[HOSTS.overpass, HOSTS.overpass2],
     lines:['📍 Center '+pin.lat.toFixed(4)+', '+pin.lon.toFixed(4), '↔ Radius '+esc(radLabel(M.radius)), '🎯 '+esc(critText(M.crit))], payload:q, ok:'Search'}, async text=>{
-    searchBusy=true; const reqs=splitQueries(text), merged=[], seen=new Set(), failed=[]; let okBuild=0, lastErr=null;
+    searchBusy=true; const reqs=splitQueries(text), merged=[], seen=new Set(), failed=[]; let okBuild=0, lastErr=null, usedBackup=false;
     try{
       for(let i=0;i<reqs.length;i++){
         searchBtn('Searching '+(i+1)+'/'+reqs.length+'…');
         try{
           const j=await overpassPost(reqs[i].q);
           (j && Array.isArray(j.elements) ? j.elements : []).forEach(el=>{ const k=el.type+el.id; if(!seen.has(k)){ seen.add(k); merged.push(el); } });
-          if(!reqs[i].optional) okBuild++;
-        }catch(e){ lastErr=e; if(!reqs[i].optional) failed.push(reqs[i].label); else failed.push('Airport distances'); }
+          if(!reqs[i].optional){ okBuild++; if(/private\.coffee/.test(overpassVia)) usedBackup=true; }
+        }catch(e){
+          lastErr=e; failed.push(reqs[i].optional ? 'Airport distances' : reqs[i].label);
+          if(!reqs[i].optional || /HTTP 429|HOLD/.test(String(e && e.message))) break;   /* a refused or failed search stops here: no more asking */
+        }
       }
       if(!okBuild){ searchBusy=false; toast('Search failed: '+netMsg(lastErr)); if(state.ui.tab==='map' && MAP) paintCtl(); return; }
       const parsed=parseOverpass({elements:merged}), kept=parsed.items.filter(c=>keepCand(c,M.crit));
@@ -104,7 +126,7 @@ async function runSearch(){
       state.search.last={ts:Date.now(), lat:pin.lat, lon:pin.lon, radius:M.radius, crit:critClean(M.crit), label, total:parsed.items.length, airports:parsed.air.slice(0,20), items:top.map(candClean).filter(Boolean), partial:failed};
       state.search.runs.unshift({id:uid(), ts:Date.now(), label, lat:pin.lat, lon:pin.lon, radius:M.radius, crit:critClean(M.crit), found:parsed.items.length, kept:kept.length}); state.search.runs=state.search.runs.slice(0,30);
       state.ui.ctlOpen=kept.length===0; save(); searchBusy=false; MSHOW=20;
-      toast(failed.length ? '⚠ Partly done: '+failed.join(', ')+' did not finish' : kept.length ? '✓ '+plural(kept.length,'building')+' match, ranked' : 'Nothing matched. Try a wider radius or looser filters.');
+      toast(failed.length ? '⚠ Partly done: '+failed.join(', ')+' did not finish' : usedBackup ? '✓ Done with the backup server (its map data can be a little older): '+plural(kept.length,'building')+' match' : kept.length ? '✓ '+plural(kept.length,'building')+' match, ranked' : 'Nothing matched. Try a wider radius or looser filters.');
       if(state.ui.tab==='map' && state.ui.mapTab==='search' && MAP){ MAP.rows=rowsNow(); mapDraw(); paintCtl(); paintResults(); const r=$('#mapHost'); if(r&&kept.length) r.scrollIntoView({behavior:'smooth',block:'start'}); }
     }catch(e){
       searchBusy=false; toast('Search failed: '+netMsg(e)); if(state.ui.tab==='map' && MAP) paintCtl();
@@ -221,7 +243,7 @@ function addrGo(raw, research, o){
   if(!state.settings.lookups.on){ toast('Turn on lookups in Settings first'); return; }
   confirmSend({title: research ? '🔎 Research this address?' : '📍 Find this place?',
     intro: research ? 'The address search finds the place, then the building search looks for the building at that spot.' : 'The address search finds the place on the map.',
-    hosts: research ? [HOSTS.nominatim, HOSTS.overpass] : [HOSTS.nominatim], lines:[], payload:q, editable:true, ok:'Search'}, async text=>{
+    hosts: research ? [HOSTS.nominatim, HOSTS.overpass, HOSTS.overpass2] : [HOSTS.nominatim], lines:[], payload:q, editable:true, ok:'Search'}, async text=>{
     toast('Looking it up…');
     try{
       const res=await geocode(text);
@@ -243,7 +265,7 @@ async function researchAt(pl, o){
   o=o||{}; toast('Finding the building…');
   let cand=null;
   try{
-    const j=await fetchJSON('https://overpass-api.de/api/interpreter',{method:'POST', headers:{'content-type':'application/x-www-form-urlencoded'}, body:'data='+encodeURIComponent(buildQueryAt(pl.lat,pl.lon))});
+    const j=await overpassPost(buildQueryAt(pl.lat,pl.lon));
     const parsed=parseOverpass(j,{keepGeom:true});
     const inside=parsed.items.filter(c=>c._g && pointInRing(c._g, pl.lat, pl.lon)).sort((a,b)=>b.sqft-a.sqft)[0];
     cand = inside || parsed.items.map(c=>({c, d:dist(c.lat,c.lon,pl.lat,pl.lon)})).filter(x=>x.d<=60).sort((a,b)=>a.d-b.d).map(x=>x.c)[0] || null;

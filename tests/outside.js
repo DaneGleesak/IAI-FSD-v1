@@ -25,14 +25,15 @@ const SECRETS = ['ZZ-SECRET-NOTE','secret.person@example.test','555-0199','ZZ-SE
   t.eq(T.outside.length, 0, 'with lookups off, using every screen sends nothing outside');
 
   /* turn lookups on from the map consent card */
-  await tab('map'); t.ok(await page.isVisible('[data-act="lookups-on"]'), 'the map explains the three hosts before anything is sent');
+  await tab('map'); t.ok(await page.isVisible('[data-act="lookups-on"]'), 'the map explains the outside hosts before anything is sent');
   const txt = await page.textContent('#main');
-  for (const h of ['tile.openstreetmap.org','overpass-api.de','nominatim.openstreetmap.org']) t.ok(txt.includes(h), 'the consent card names '+h);
+  for (const h of ['tile.openstreetmap.org','overpass-api.de','overpass.private.coffee','nominatim.openstreetmap.org']) t.ok(txt.includes(h), 'the consent card names '+h);
   t.eq(T.outside.length, 0, 'still nothing sent while reading the card');
   await page.click('[data-act="lookups-on"]'); await page.waitForSelector('#mapHost');
   await page.waitForTimeout(300);
   const tiles = T.outside.filter(r=>/tile\.openstreetmap\.org/.test(r.url));
   t.ok(tiles.length>0, 'after opting in, map pictures are requested');
+  t.ok(tiles.every(r=>/^http:\/\/localhost:\d+\/$/.test(r.referer)), 'map pictures say which app asks (the web address only, no page, as OpenStreetMap requires)');
   t.ok(T.outside.every(r=>/^https:\/\/(tile|[abc]\.tile)\.openstreetmap\.org\//.test(r.url)), 'and only from the tile host so far');
 
   /* address search: the exact request is shown first */
@@ -59,7 +60,7 @@ const SECRETS = ['ZZ-SECRET-NOTE','secret.person@example.test','555-0199','ZZ-SE
   t.ok(/around/.test(body) && /building/.test(body), 'the building search shows the Overpass request it will send');
   t.ok(SECRETS.every(x=>!body.includes(x)), 'the request text holds none of the planted private data');
   await page.click('#cfOk'); await page.waitForSelector('#results .rcard', {timeout:8000});
-  const op = T.outside.filter(r=>/overpass/.test(r.url)); t.eq(op.length, (body.match(/^\/\/ ---- request /gm)||[]).length, 'one small building-search request was made for each part shown ('+op.length+')');
+  const op = T.outside.filter(r=>/overpass/.test(r.url)); t.eq(op.length, (body.match(/^\/\/ ---- request /gm)||[]).length, 'one building-search request was made for each part shown ('+op.length+')');
   t.eq(op[0].method, 'POST', 'it is a POST to the building-search host');
   const rows = await page.$$eval('#results .rcard', e=>e.map(x=>x.innerText));
   t.ok(rows.length>=2, 'ranked buildings come back ('+rows.length+')');
@@ -79,7 +80,8 @@ const SECRETS = ['ZZ-SECRET-NOTE','secret.person@example.test','555-0199','ZZ-SE
   const all = T.bodies.join('\n');
   for (const s of SECRETS) t.ok(!all.includes(encodeURIComponent(s)) && !all.includes(s), 'the planted value “'+s+'” was never sent');
   const hosts = [...new Set(T.outside.map(r=>new URL(r.url).host.replace(/^[abc]\./,'')))].sort();
-  t.eq(hosts, ['nominatim.openstreetmap.org','overpass-api.de','tile.openstreetmap.org'], 'exactly the three declared hosts were contacted');
+  t.eq(hosts, ['nominatim.openstreetmap.org','overpass-api.de','tile.openstreetmap.org'], 'only declared hosts were contacted, and the backup building server was not needed');
+  t.ok(T.outside.filter(r=>/overpass/.test(r.url)).every(r=>r.referer===''), 'building searches carry no Referer at all');
   t.ok(T.outside.every(r=>r.method==='GET' || /overpass/.test(r.url)), 'only the building search uses POST');
 
   /* adding a result to the pipeline: map facts are estimates with a source, never verified */

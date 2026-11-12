@@ -11,7 +11,7 @@ const rel = f=>path.relative(root,f);
 const app = text.filter(f=>/^(js\/|index\.html|sw\.js|manifest\.json)/.test(rel(f)));
 
 /* 1. outside web addresses used by the app: a fixed allowlist, and only the four lookup hosts are ever fetched */
-const ALLOWED = [/^https:\/\/tile\.openstreetmap\.org\//, /^https:\/\/overpass-api\.de\//, /^https:\/\/nominatim\.openstreetmap\.org\//, /^https:\/\/gis\.cuyahogacounty\.gov\/server\/rest\/services\//,
+const ALLOWED = [/^https:\/\/tile\.openstreetmap\.org\//, /^https:\/\/overpass-api\.de\//, /^https:\/\/overpass\.private\.coffee\//, /^https:\/\/nominatim\.openstreetmap\.org\//, /^https:\/\/gis\.cuyahogacounty\.gov\/server\/rest\/services\//,
   /^https:\/\/maps\.apple\.com\//, /^https:\/\/forecast\.weather\.gov\//, /^https:\/\/www\.faa\.gov\/uas\/getting_started\/laanc$/,
   /^https:\/\/www\.google\.com\/search\?q=$/, /^https:\/\/businesssearch\.ohiosos\.gov\/$/];
 for (const f of app) for (const m of fs.readFileSync(f,'utf8').matchAll(/https?:\/\/[A-Za-z0-9./_?=&%-]+/g))

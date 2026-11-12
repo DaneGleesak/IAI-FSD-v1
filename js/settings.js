@@ -67,9 +67,10 @@ ACT['wipe']=()=>askConfirm('Erase everything?','Every lead, note, quote and sett
 
 /* ---------- connection check: one tiny test to each service, shown plainly ---------- */
 const NET_TESTS=[
-  {name:'Map pictures', host:HOSTS.tile, line:'GET https://tile.openstreetmap.org/0/0/0.png', url:'https://tile.openstreetmap.org/0/0/0.png', opt:{referrerPolicy:'no-referrer'}},
+  {name:'Map pictures', host:HOSTS.tile, line:'GET https://tile.openstreetmap.org/0/0/0.png', url:'https://tile.openstreetmap.org/0/0/0.png', opt:{referrerPolicy:'origin'}},
   {name:'Address search', host:HOSTS.nominatim, line:'GET https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=Cleveland%2C%20Ohio', url:'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=Cleveland%2C%20Ohio', opt:{referrerPolicy:'origin'}},
   {name:'Building search', host:HOSTS.overpass, line:'POST https://overpass-api.de/api/interpreter   data=[out:json][timeout:10];node(41.4,-81.5,41.4001,-81.4999);out count;', url:'https://overpass-api.de/api/interpreter', opt:{method:'POST', headers:{'content-type':'application/x-www-form-urlencoded'}, body:'data='+encodeURIComponent('[out:json][timeout:10];node(41.4,-81.5,41.4001,-81.4999);out count;')}},
+  {name:'Backup building search', host:HOSTS.overpass2, line:'POST https://overpass.private.coffee/api/interpreter   data=[out:json][timeout:10];node(41.4,-81.5,41.4001,-81.4999);out count;', url:'https://overpass.private.coffee/api/interpreter', opt:{method:'POST', headers:{'content-type':'application/x-www-form-urlencoded'}, body:'data='+encodeURIComponent('[out:json][timeout:10];node(41.4,-81.5,41.4001,-81.4999);out count;')}},
   {name:'County records', host:HOSTS.county, line:'GET https://gis.cuyahogacounty.gov/server/rest/services/Open_Data_Parcels/MapServer/1?f=json', url:'https://gis.cuyahogacounty.gov/server/rest/services/Open_Data_Parcels/MapServer/1?f=json', opt:{}}
 ];
 async function netTestOne(T){

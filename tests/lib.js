@@ -45,13 +45,14 @@ async function launch(opts){
   const ctx = await browser.newContext({ viewport:{width:opts.w||390,height:opts.h||844}, deviceScaleFactor:1, hasTouch:!!opts.touch, isMobile:!!opts.touch, serviceWorkers:'block', permissions:['clipboard-read','clipboard-write'], acceptDownloads:true });
   const outside = [];           // every request that left the app's own origin
   const bodies = [];            // text sent in those requests
-  const hooks = { overpass:null };   // a test can make the building search misbehave: (body, n) => null | {status} | {json}
-  let opN = 0;
+  const hooks = { overpass:null, overpass2:null };   // a test can make the main / backup building search misbehave: (body, n) => null | {status} | {json}
+  const opN = { overpass:0, overpass2:0 };
   await ctx.route(u=>!u.href.startsWith('http://localhost:'+port), async route=>{
     const r = route.request(), url = r.url();
-    outside.push({url, method:r.method()}); if(r.postData()) bodies.push(r.postData()); bodies.push(url);
+    outside.push({url, method:r.method(), referer:r.headers()['referer']||''}); if(r.postData()) bodies.push(r.postData()); bodies.push(url);
     if(/tile\.openstreetmap\.org/.test(url)) return route.fulfill({status:200, contentType:'image/png', body:PNG});
-    if(/overpass-api\.de/.test(url)){ const h = hooks.overpass && hooks.overpass(decodeURIComponent(String(r.postData()||'').replace(/^data=/,'').replace(/\+/g,' ')), ++opN); if(h && h.status) return route.fulfill({status:h.status, contentType:'text/plain', body:'busy'}); if(h && h.json) return route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(h.json)}); return route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(mockOverpass())}); }
+    const which = /overpass-api\.de/.test(url) ? 'overpass' : /overpass\.private\.coffee/.test(url) ? 'overpass2' : null;
+    if(which){ const h = hooks[which] && hooks[which](decodeURIComponent(String(r.postData()||'').replace(/^data=/,'').replace(/\+/g,' ')), ++opN[which]); if(h && h.abort) return route.abort(); if(h && h.status) return route.fulfill({status:h.status, contentType:'text/plain', body:'busy'}); if(h && h.json) return route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(h.json)}); return route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(mockOverpass())}); }
     if(/nominatim\.openstreetmap\.org/.test(url)) return route.fulfill({status:200, contentType:'application/json', body:JSON.stringify([{display_name:'1 Test Ave, Mocktown', lat:'39.9600', lon:'-82.9900', osm_type:'way', osm_id:9001, type:'office', category:'building', address:{house_number:'1', road:'Test Ave', city:'Mocktown'}}])});
     if(/gis\.cuyahogacounty\.gov/.test(url)) return route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(mockCounty(url))});
     return route.abort();

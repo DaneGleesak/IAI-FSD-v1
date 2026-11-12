@@ -79,8 +79,8 @@ t.eq(E.detailClean(null), dS, 'nothing saved gives Simple'); t.eq(E.detailClean(
 t.eq(E.detailClean([1,2]), dS, 'an array is not a setting');
 /* the building search, split into small requests */
 const bq = E.buildQueries(41.4577,-81.4927,4828,E.critClean({preset:'targets'}));
-t.eq(bq.map(x=>x.label).sort(), ['Airports','Apartments','Hotels','Medical','Offices'], 'one request for each kind of building you chose, then the airports');
-t.ok(bq.length>=3 && bq[bq.length-1].label==='Airports' && bq[bq.length-1].optional, 'the airport request comes last and is optional');
+t.eq(bq.map(x=>x.label), ['Buildings','Airports'], 'two gentle requests: every kind of building you chose in one, then the airports');
+t.ok(bq[1].optional && !bq[0].optional, 'the airport request comes last and is optional');
 const bodies = bq.filter(x=>!x.optional);
 t.ok(bodies.every(x=>/\(around:4828,41\.45770,-81\.49270\)/.test(x.q)), 'every part asks about the same point and radius');
 t.ok(bodies.every(x=>!/"building"~"\^\(/.test(x.q)), 'building types are exact matches, not patterns, so the server can use its index');
@@ -90,5 +90,8 @@ t.ok(bq.every(x=>/\[out:json\]\[timeout:\d+\]/.test(x.q)), 'each part has its ow
 const joined = E.joinQueries(bq), back = E.splitQueries(joined);
 t.eq(back.map(x=>x.label), bq.map(x=>x.label), 'the requests read as one block of text and split back the same'); t.eq(back.map(x=>x.q), bq.map(x=>x.q), 'word for word');
 t.eq(E.splitQueries('[out:json];out;').length, 1, 'plain text with no markers is one request');
-t.ok(E.buildQueries(41.4,-81.4,1609,E.critClean({preset:'highrise'})).length>=2, 'the high-rise preset builds its own parts');
+const hr = E.buildQueries(41.4,-81.4,1609,E.critClean({preset:'highrise'}));
+t.eq(hr.length, 2, 'the high-rise preset is also two requests'); t.ok(/building:levels/.test(hr[0].q), 'and asks for floors');
+t.ok(['hotel','apartments','hospital'].every(v=>new RegExp('\\["building"="'+v+'"\\]').test(bq[0].q)), 'every chosen kind is in the one buildings request');
+t.eq((bq[0].q.match(/\["building"="hotel"\]/g)||[]).length, 2, 'and each value is asked for once, as a way and as a relation');
 t.done();

@@ -47,7 +47,7 @@ sh tests/run-all.sh test-out                             # every suite
 | `tests/fsd1.js` | The vertical slice end to end: demo labels, navigation, one property record, persistence, stage changes, quote approval gate, email on tap only, backup round trip, damaged-save handling |
 | `tests/blocked.js` | If the browser blocks storage (private browsing, an embedded preview) the app still opens with demo data, works for the visit and says changes won't be kept |
 | `tests/files.js` | Photos and files: stored on the phone, shown on the property, left out of a backup unless chosen, restored from one that includes them |
-| `tests/outside.js` | Nothing is sent until lookups are on; only the three OpenStreetMap hosts (the county test is `tests/county.js`); private data never leaves; map results are not leads until you add one |
+| `tests/outside.js` | Nothing is sent until lookups are on; only the declared hosts: three OpenStreetMap hosts, plus the backup building server only when the main one is busy (the county test is `tests/county.js`); private data never leaves; map results are not leads until you add one |
 | `tests/layout.js` | 320 px and 390 px wide: no sideways scroll, touch targets ≥ 40 px (pass a folder to save screenshots) |
 
 The outside services are **mocked** in the tests, with invented buildings.

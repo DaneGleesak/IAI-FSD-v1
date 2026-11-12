@@ -68,12 +68,13 @@ A map search produces *candidates* in `search.last`. A candidate becomes a prope
 
 ## Outside requests
 
-The app has one network function, `fetchJSON` in `js/ui.js` (`credentials:'omit'`, `cache:'no-store'`, no referrer except address search, where OpenStreetMap asks for the app's origin). `sw.js` ignores every cross-origin request.
+The app has one network function, `fetchJSON` in `js/ui.js` (`credentials:'omit'`, `cache:'no-store'`, no referrer except address search, where OpenStreetMap asks for the app's origin). Map pictures (plain `<img>` requests) also send the app's origin only (`referrerPolicy='origin'`), because OpenStreetMap's tile servers refuse requests with no Referer. `sw.js` ignores every cross-origin request.
 
 | Host | When | What is sent |
 |---|---|---|
-| `tile.openstreetmap.org` | only while the Territory Map is open with lookups on | the tile coordinates being viewed |
+| `tile.openstreetmap.org` | only while the Territory Map is open with lookups on | the tile coordinates being viewed, and the app's web address (origin only) as Referer |
 | `overpass-api.de` | on tapping Search, after the exact request is shown | centre point, radius, filters |
+| `overpass.private.coffee` (backup, owner-approved) | only when `overpass-api.de` is busy (429/5xx), down or silent; the same request shown before Search | the same centre point, radius, filters. Its map data can be a little older, and the app says so |
 | `nominatim.openstreetmap.org` | on tapping Go/Research, after the exact request is shown | the address typed |
 | `gis.cuyahogacounty.gov` | on tapping “Look up county record”, after the exact request is shown | one building's map position (longitude, latitude) |
 

@@ -238,24 +238,23 @@ function buildQuery(lat, lon, r, crit){
   if(!crit.types.length || crit.minLevels>=5) P.push('way["building"]["building:levels"~"'+lv+'"]'+A+';');
   return '[out:json][timeout:25];\n(\n  '+P.join('\n  ')+'\n)->.b;\n.b out geom;\nnwr["aeroway"~"^(aerodrome|heliport)$"](around:'+Math.round(r+16000)+','+lat.toFixed(5)+','+lon.toFixed(5)+');\nout center tags;';
 }
-/* The same search as buildQuery, split into small separate requests, one per kind of building. A busy server
-   or a big area then costs one part, not everything. Exact tag values (not patterns) let the server use its index.
-   Airports are their own small request: losing them only loses the airport distance. */
+/* The same search as buildQuery, as TWO polite requests: one for the buildings (every wanted kind in one query,
+   exact tag values so the server can use its index) and one small one for airports. Fewer, lighter requests is
+   what the public server asks for; losing the airport request only loses the airport distance. */
 function buildQueries(lat, lon, r, crit){
   crit=critClean(crit);
-  const A='(around:'+Math.round(r)+','+lat.toFixed(5)+','+lon.toFixed(5)+')', types=crit.types.length ? crit.types : TYPE_KEYS, lv3=levelsRe(3), out=[];
-  const wrap=P=>'[out:json][timeout:40];\n(\n  '+P.join('\n  ')+'\n)->.b;\n.b out geom;', ex=(k,v)=>'["'+k+'"="'+v+'"]';
-  types.forEach(k=>{
-    const d=TYPES[k]; if(!d) return; const P=[];
-    d.b.forEach(v=>{ P.push('way'+ex('building',v)+A+';'); P.push('relation'+ex('building',v)+A+';'); });
-    (d.tall||[]).forEach(v=>{ ['way','relation'].forEach(w=>P.push(w+ex('building',v)+'["building:levels"~"'+lv3+'"]'+A+';')); });
-    (d.t||[]).forEach(v=>P.push('way'+ex('tourism',v)+'["building"]'+A+';'));
-    (d.a||[]).forEach(v=>P.push('way'+ex('amenity',v)+'["building"]'+A+';'));
-    out.push({label:d.label, q:wrap(P)});
-  });
-  if(!crit.types.length || crit.minLevels>=5) out.push({label:'Tall buildings', q:wrap(['way["building"]["building:levels"~"'+levelsRe(Math.max(2,crit.minLevels||2))+'"]'+A+';'])});
-  out.push({label:'Airports', optional:true, q:'[out:json][timeout:25];\nnwr["aeroway"~"^(aerodrome|heliport)$"](around:'+Math.round(r+16000)+','+lat.toFixed(5)+','+lon.toFixed(5)+');\nout center tags;'});
-  return out;
+  const A='(around:'+Math.round(r)+','+lat.toFixed(5)+','+lon.toFixed(5)+')', types=crit.types.length ? crit.types : TYPE_KEYS, lv3=levelsRe(3);
+  const ex=(k,v)=>'["'+k+'"="'+v+'"]', plain=new Set(), tall=new Set(), tour=new Set(), amen=new Set(), P=[];
+  types.forEach(k=>{ const d=TYPES[k]; if(!d) return; d.b.forEach(v=>plain.add(v)); (d.tall||[]).forEach(v=>tall.add(v)); (d.t||[]).forEach(v=>tour.add(v)); (d.a||[]).forEach(v=>amen.add(v)); });
+  plain.forEach(v=>{ P.push('way'+ex('building',v)+A+';'); P.push('relation'+ex('building',v)+A+';'); });
+  tall.forEach(v=>{ ['way','relation'].forEach(w=>P.push(w+ex('building',v)+'["building:levels"~"'+lv3+'"]'+A+';')); });
+  tour.forEach(v=>P.push('way'+ex('tourism',v)+'["building"]'+A+';'));
+  amen.forEach(v=>P.push('way'+ex('amenity',v)+'["building"]'+A+';'));
+  if(!crit.types.length || crit.minLevels>=5) P.push('way["building"]["building:levels"~"'+levelsRe(Math.max(2,crit.minLevels||2))+'"]'+A+';');
+  return [
+    {label:'Buildings', q:'[out:json][timeout:45];\n(\n  '+P.join('\n  ')+'\n)->.b;\n.b out geom;'},
+    {label:'Airports', optional:true, q:'[out:json][timeout:25];\nnwr["aeroway"~"^(aerodrome|heliport)$"](around:'+Math.round(r+16000)+','+lat.toFixed(5)+','+lon.toFixed(5)+');\nout center tags;'}
+  ];
 }
 /* the requests as one block of text (what the owner reads first), and back into requests */
 function joinQueries(parts){ return parts.map((x,i)=>'// ---- request '+(i+1)+' of '+parts.length+': '+x.label+' ----\n'+x.q).join('\n\n'); }

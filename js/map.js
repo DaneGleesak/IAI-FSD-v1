@@ -117,7 +117,7 @@ function mapDraw(){
       img=new Image(); img.alt=''; img.decoding='async'; img.draggable=false;
       img.addEventListener('load',()=>{ MAP.ok++; img.style.opacity='1'; MAP.note.hidden=true; });
       img.addEventListener('error',()=>{ MAP.errs++; if(MAP.errs>=3 && !MAP.ok) MAP.note.hidden=false; });
-      img.style.opacity='0'; img.src='https://tile.openstreetmap.org/'+zt+'/'+wx+'/'+ty+'.png';
+      img.style.opacity='0'; img.referrerPolicy='origin'; img.src='https://tile.openstreetmap.org/'+zt+'/'+wx+'/'+ty+'.png';
       MAP.tilesEl.appendChild(img); MAP.tiles.set(key,img);
     }
     const size=(256*s+0.6)+'px'; img.style.width=size; img.style.height=size;

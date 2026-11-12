@@ -169,7 +169,7 @@ ACT['detail-preset']=el=>{ state.settings.show=detailPreset(el.dataset.p); save(
 ACT['detail-sw']=el=>{ if(DETAIL_KEYS.includes(el.dataset.k)){ state.settings.show[el.dataset.k]=el.checked; save(); const b=$('#detailBox'); if(b){ const y=($('#dlg')||{}).scrollTop; b.outerHTML=detailPanel(); const d=$('#dlg'); if(d && y) d.scrollTop=y; } } };
 
 /* ---------- lookups: described first, the exact request shown, nothing from your leads attached ---------- */
-const HOSTS={tile:'tile.openstreetmap.org', overpass:'overpass-api.de', nominatim:'nominatim.openstreetmap.org', county:'gis.cuyahogacounty.gov'};
+const HOSTS={tile:'tile.openstreetmap.org', overpass:'overpass-api.de', overpass2:'overpass.private.coffee', nominatim:'nominatim.openstreetmap.org', county:'gis.cuyahogacounty.gov'};
 async function fetchJSON(url, opt){
   const ctl=window.AbortController ? new AbortController() : null, ms=(opt && opt.ms) || 30000, t=setTimeout(()=>ctl && ctl.abort(), ms);
   try{
@@ -192,6 +192,7 @@ function netMsg(e){
   const m=String(e && e.message || e), code=(m.match(/HTTP (\d{3})/)||[])[1];
   if(code==='429') return 'The service says too many requests (HTTP 429). Wait a minute, then try again.';
   if(code==='502'||code==='503'||code==='504') return 'The service is overloaded (HTTP '+code+'). Try again in a minute.';
+  if(/^HOLD/.test(m)){ const n=Number((m.match(/HOLD (\d+)/)||[])[1])||30; return 'The building server asked us to slow down. Wait '+n+' seconds and try again.'; }
   if(/SERVER-TIMEOUT/.test(m)) return 'The server ran out of time on this part. Try a smaller radius.';
   if(/abort/i.test(m)) return 'No answer after a minute. Try again, or a smaller radius.';
   if(/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'No connection to the service.';
@@ -217,7 +218,7 @@ function confirmSend(o, go){
 function consentCard(){
   return '<section class="card consent"><h3>🛰 Lookups are off</h3><p class="muted">The map and building search use OpenStreetMap, outside your phone. Nothing is sent until you turn this on, and these are the only outside requests the app ever makes:</p>'+
     '<div class="line">🗺 <b>Map pictures</b> from '+HOSTS.tile+' as you move the map. OpenStreetMap sees the area you look at.</div>'+
-    '<div class="line">🏢 <b>Building search</b> at '+HOSTS.overpass+': a center point, a radius and the filters you choose.</div>'+
+    '<div class="line">🏢 <b>Building search</b> at '+HOSTS.overpass+', or at '+HOSTS.overpass2+' only when the first is busy: a center point, a radius and the filters you choose.</div>'+
     '<div class="line">📍 <b>Address search</b> at '+HOSTS.nominatim+': the address you type.</div>'+
     '<div class="line">🏛 <b>County records</b> at '+HOSTS.county+' (Cuyahoga County): one building’s map position, only when you tap “Look up county record”.</div>'+
     '<p class="muted sm">Nothing from your leads, contacts, prices or notes is ever sent, and there are no cookies. You see the exact request before each search (you can switch that off). OpenStreetMap’s rules ask for this app’s web address on map and address requests; that is the only other thing sent. Email is never sent from here: a draft opens in your mail app and you tap send.</p>'+
