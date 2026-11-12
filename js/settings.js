@@ -10,6 +10,8 @@ function viewSettings(m){
       '<label class="switch"><input type="checkbox" id="swLook"'+(L.on?' checked':'')+'><span>Allow lookups (map pictures, building search, address search)</span></label>'+
       '<label class="switch"><input type="checkbox" id="swAuto"'+(L.autoSend?' checked':'')+'><span>Skip the “show me the request” step</span></label>'+
       '<p class="muted sm">Hosts used: '+Object.values(HOSTS).join(', ')+'. Nothing from your leads, contacts, prices or notes is ever sent.</p></section>'+
+    '<section class="card"><h3>Connection check</h3><p class="muted sm">If a search fails, tap this. It sends one tiny test to each of the four services and shows what came back, so you can send it to the builder. Nothing from your leads is sent.</p>'+
+      (L.on ? '<button class="btn quiet wide" data-act="net-check">Check connection</button>' : '<p class="muted sm">Turn on lookups above first.</p>')+'<div id="netOut"></div></section>'+
     '<section class="card"><h3>My details</h3><p class="muted sm">Used in the email and quote drafts you read before sending. Kept on this phone.</p>'+
       kv('Name',sn.name?esc(sn.name):'<span class="dim">not set</span>')+kv('Company',sn.company?esc(sn.company):'<span class="dim">not set</span>')+kv('Mailing address',sn.address?esc(sn.address):'<span class="dim">not set</span>')+
       '<button class="btn quiet" data-act="sender-edit">Edit my details</button></section>'+
@@ -62,3 +64,36 @@ ACT['wipe']=()=>askConfirm('Erase everything?','Every lead, note, quote and sett
   try{ for(const f of await fileAll()) await fileDel(f.id); }catch(e){}
   state=normalize(null); state.ui.seeded=true; save(); toast('Erased'); show('dash');
 },true);
+
+/* ---------- connection check: one tiny test to each service, shown plainly ---------- */
+const NET_TESTS=[
+  {name:'Map pictures', host:HOSTS.tile, line:'GET https://tile.openstreetmap.org/0/0/0.png', url:'https://tile.openstreetmap.org/0/0/0.png', opt:{referrerPolicy:'no-referrer'}},
+  {name:'Address search', host:HOSTS.nominatim, line:'GET https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=Cleveland%2C%20Ohio', url:'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=Cleveland%2C%20Ohio', opt:{referrerPolicy:'origin'}},
+  {name:'Building search', host:HOSTS.overpass, line:'POST https://overpass-api.de/api/interpreter   data=[out:json][timeout:10];node(41.4,-81.5,41.4001,-81.4999);out count;', url:'https://overpass-api.de/api/interpreter', opt:{method:'POST', headers:{'content-type':'application/x-www-form-urlencoded'}, body:'data='+encodeURIComponent('[out:json][timeout:10];node(41.4,-81.5,41.4001,-81.4999);out count;')}},
+  {name:'County records', host:HOSTS.county, line:'GET https://gis.cuyahogacounty.gov/server/rest/services/Open_Data_Parcels/MapServer/1?f=json', url:'https://gis.cuyahogacounty.gov/server/rest/services/Open_Data_Parcels/MapServer/1?f=json', opt:{}}
+];
+async function netTestOne(T){
+  const t0=performance.now(), ctl=window.AbortController?new AbortController():null, timer=setTimeout(()=>ctl&&ctl.abort(),20000);
+  const ms=()=>{ const d=performance.now()-t0; return d<1000?Math.round(d)+' ms':(d/1000).toFixed(1)+' s'; };
+  try{
+    const r=await fetch(T.url,Object.assign({credentials:'omit', cache:'no-store', signal:ctl?ctl.signal:undefined}, T.opt));
+    let extra=''; if(!r.ok){ try{ extra=' · '+(await r.text()).replace(/\s+/g,' ').slice(0,80); }catch(_){} }
+    return {ok:r.ok, text:T.name+' · HTTP '+r.status+' · '+ms()+extra};
+  }catch(e){
+    const m=String(e&&e.message||e), why=/abort/i.test(m)?'no answer in 20 seconds':/Failed to fetch|NetworkError|Load failed/i.test(m)?'the phone could not get through (no signal, or the service does not allow this app)':m.slice(0,60);
+    return {ok:false, text:T.name+' · failed after '+ms()+' · '+why};
+  }finally{ clearTimeout(timer); }
+}
+ACT['net-check']=()=>{
+  confirmSend({title:'Check the connection?', intro:'One tiny test goes to each service below. None carries a lead, contact, price or note, and none names a building.', hosts:NET_TESTS.map(x=>x.host),
+    lines:[], payload:NET_TESTS.map((x,i)=>(i+1)+'. '+x.line).join('\n'), ok:'Check'}, async()=>{
+    const out=$('#netOut'); if(!out) return; const res=[];
+    out.innerHTML='<p class="muted sm" role="status">Checking…</p>';
+    for(const T of NET_TESTS){ out.innerHTML='<p class="muted sm" role="status">Checking '+esc(T.name.toLowerCase())+'…</p>'+res.map(r=>'<p class="sm">'+(r.ok?'✅ ':'❌ ')+esc(r.text)+'</p>').join(''); res.push(await netTestOne(T)); }
+    const head='App: '+location.origin+' · '+(navigator.onLine===false?'phone says it is offline':'phone says it is online')+' · '+new Date().toLocaleString();
+    const full=head+'\n'+res.map(r=>(r.ok?'OK  ':'FAIL ')+r.text).join('\n');
+    out.innerHTML=res.map(r=>'<p class="sm">'+(r.ok?'✅ ':'❌ ')+esc(r.text)+'</p>').join('')+'<p class="muted sm">'+esc(head)+'</p><button class="btn quiet" data-act="net-copy">Copy these results</button>';
+    out.dataset.full=full;
+  });
+};
+ACT['net-copy']=()=>{ const o=$('#netOut'); if(o && o.dataset.full) copyText(o.dataset.full); };

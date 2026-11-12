@@ -70,6 +70,26 @@ const t = suite('building search in parts');
   /* and then it works */
   reset(); T.hooks.overpass = null; await page.click('#cGo'); await page.waitForSelector('#cfOk'); await page.click('#cfOk'); await page.waitForSelector('#results .rcard', {timeout:10000});
   t.ok((await S()).search.last.items.length>=2, 'the next try works');
+  /* the connection check: one tiny test to each service, shown plainly */
+  reset(); await page.evaluate(()=>show('settings')); await page.waitForSelector('[data-act="net-check"]');
+  await page.click('[data-act="net-check"]'); await page.waitForSelector('#cfPay');
+  const shownNet = await page.inputValue('#cfPay'), dlgTxt = await page.textContent('#dlg');
+  t.eq((shownNet.match(/^\d\. /gm)||[]).length, 4, 'the confirm step lists the four tests');
+  t.ok(['tile.openstreetmap.org','nominatim.openstreetmap.org','overpass-api.de','gis.cuyahogacounty.gov'].every(h=>dlgTxt.includes(h)), 'and names all four services');
+  t.ok(SECRETS.every(x=>!shownNet.includes(x)) && !/lead|contact|price/i.test(shownNet.replace(/Nothing.*/,'')), 'none of it comes from your data');
+  t.eq(T.outside.length, 0, 'nothing is sent before Check is tapped');
+  await page.click('#cfOk'); await page.waitForSelector('[data-act="net-copy"]', {timeout:15000});
+  t.eq(T.outside.length, 4, 'four tests were sent'); t.ok(T.outside.filter(r=>r.method==='POST').length===1, 'one of them a POST');
+  let lines = await page.$$eval('#netOut p.sm', e=>e.map(x=>x.innerText));
+  t.eq(lines.filter(x=>/^✅/.test(x)).length, 4, 'all four show a tick when the services answer'); t.ok(lines.every(x=>/HTTP 200/.test(x)||!/^✅/.test(x)), 'each with its HTTP code');
+  reset(); T.hooks.overpass = ()=>({status:429});
+  await page.click('[data-act="net-check"]'); await page.waitForSelector('#cfOk'); await page.click('#cfOk'); await page.waitForFunction(()=>/HTTP 429/.test(document.getElementById('netOut').innerText), null, {timeout:15000});
+  await page.waitForSelector('[data-act="net-copy"]');
+  lines = await page.$$eval('#netOut p.sm', e=>e.map(x=>x.innerText));
+  t.ok(lines.some(x=>/^❌ Building search · HTTP 429/.test(x)), 'a busy service shows as a cross with its code'); t.eq(lines.filter(x=>/^✅/.test(x)).length, 3, 'and the others still show their tick');
+  t.ok(/FAIL Building search · HTTP 429/.test(await page.$eval('#netOut', e=>e.dataset.full)) && /App: http/.test(await page.$eval('#netOut', e=>e.dataset.full)), 'the copy-able version says the same, with the app address on top');
+  await page.evaluate(()=>{ state.settings.lookups.on=false; save(); show('settings'); }); await page.waitForTimeout(150);
+  t.ok(!(await page.$('[data-act="net-check"]')) && /Turn on lookups above first/.test(await page.textContent('#main')), 'with lookups off there is no test button');
   t.eq(T.errors, [], 'no page errors'); t.eq(T.dialogs.length, 0, 'no native dialogs');
   await T.close(); t.done();
 })().catch(e=>{ console.error(e); process.exit(1); });
